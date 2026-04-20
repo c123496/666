@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>清除虚拟男友配置</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      max-width: 500px;
+      width: 90%;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 1rem;
+    }
+    p {
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+    .status {
+      margin-top: 1rem;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      display: none;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 虚拟男友配置修复工具</h1>
+    <p>
+      如果你遇到了 "Cannot read properties of undefined" 错误，
+      这可能是因为之前的配置数据格式不兼容。使用下面的按钮清除旧数据。
+    </p>
+    <button onclick="clearConfig()">🗑️ 清除所有配置数据</button>
+    <button onclick="goBack()">🔙 返回应用</button>
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    function clearConfig() {
+      try {
+        // 清除所有相关的 localStorage 数据
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('user') || key.includes('conversation') || key.includes('personality') || key.includes('nickname'))) {
+            keysToRemove.push(key);
+          }
+        }
+
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+
+        // 显示成功消息
+        showStatus('✅ 配置已成功清除！现在可以返回应用重新开始了。', 'success');
+      } catch (error) {
+        showStatus('❌ 清除配置时出错: ' + error.message, 'error');
+      }
+    }
+
+    function goBack() {
+      window.location.href = '/';
+    }
+
+    function showStatus(message, type) {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = 'status ' + type;
+      statusDiv.style.display = 'block';
+
+      // 3秒后自动隐藏
+      setTimeout(() => {
+        statusDiv.style.display = 'none';
+      }, 5000);
+    }
+
+    // 检查当前存储的数据
+    function checkCurrentConfig() {
+      const nickname = localStorage.getItem('nickname');
+      const personalityId = localStorage.getItem('personalityId');
+
+      if (nickname || personalityId) {
+        console.log('当前配置:');
+        console.log('昵称:', nickname);
+        console.log('角色ID:', personalityId);
+      } else {
+        console.log('没有找到现有配置');
+      }
+    }
+
+    // 页面加载时检查当前配置
+    checkCurrentConfig();
+  </script>
+</body>
+</html>

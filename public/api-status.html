@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图片生成 API 状态测试</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+    .content {
+      padding: 30px;
+    }
+    .status-section {
+      margin-bottom: 30px;
+    }
+    .status-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    .provider-card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 15px;
+      border-left: 4px solid #dee2e6;
+    }
+    .provider-card.available {
+      border-left-color: #10b981;
+      background: #f0fdf4;
+    }
+    .provider-card.unavailable {
+      border-left-color: #ef4444;
+      background: #fef2f2;
+    }
+    .provider-card.warning {
+      border-left-color: #f59e0b;
+      background: #fffbeb;
+    }
+    .provider-name {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .provider-status {
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: white;
+      font-weight: 500;
+    }
+    .provider-status.available {
+      color: #10b981;
+    }
+    .provider-status.unavailable {
+      color: #ef4444;
+    }
+    .provider-status.warning {
+      color: #f59e0b;
+    }
+    .provider-details {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.6;
+    }
+    .provider-details code {
+      background: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: monospace;
+    }
+    .test-section {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 30px;
+    }
+    .test-button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 10px;
+      font-weight: 500;
+    }
+    .test-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .test-result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+    }
+    .test-result.success {
+      background: #f0fdf4;
+      color: #10b981;
+      border: 1px solid #10b981;
+    }
+    .test-result.error {
+      background: #fef2f2;
+      color: #ef4444;
+      border: 1px solid #ef4444;
+    }
+    .refresh-button {
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    .refresh-button:hover {
+      background: #f8f9fa;
+    }
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+      margin-left: 8px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎨 图片生成 API 状态</h1>
+      <p>实时监控所有图片生成服务的可用性和配置状态</p>
+    </div>
+
+    <div class="content">
+      <div class="status-section">
+        <div class="status-title">
+          📊 Provider 状态概览
+          <button class="refresh-button" onclick="loadStatus()">🔄 刷新状态</button>
+        </div>
+        <div id="providers-container"></div>
+      </div>
+
+      <div class="test-section">
+        <div class="status-title">🧪 测试图片生成</div>
+        <p style="color: #666; margin-bottom: 15px;">点击下面的按钮测试实际的图片生成功能</p>
+        <button id="testButton" class="test-button" onclick="testImageGeneration()">
+          测试图片生成
+        </button>
+        <div id="testResult" class="test-result"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentStatus = null;
+
+    async function loadStatus() {
+      try {
+        const response = await fetch('/api/status');
+        currentStatus = await response.json();
+        displayStatus(currentStatus);
+      } catch (error) {
+        console.error('加载状态失败:', error);
+        document.getElementById('providers-container').innerHTML =
+          '<div class="provider-card unavailable">加载状态失败，请检查服务器是否运行</div>';
+      }
+    }
+
+    function displayStatus(status) {
+      const container = document.getElementById('providers-container');
+      let html = '';
+
+      // 当前 provider
+      if (status.currentProvider) {
+        html += '<div class="provider-card available">';
+        html += '<div class="provider-name">';
+        html += '🎯 当前使用的 Provider';
+        html += `<span class="provider-status available">✅ 活跃</span>`;
+        html += '</div>';
+        html += `<div class="provider-details">${status.currentProvider}</div>`;
+        html += '</div>';
+      }
+
+      // 各个 provider 的状态
+      for (const [key, provider] of Object.entries(status.providers)) {
+        const config = provider.config;
+        let cardClass = 'warning';
+        let statusText = '⚠️ 未配置';
+        let statusClass = 'warning';
+
+        if (provider.available) {
+          if (config.hasApiKey) {
+            cardClass = 'available';
+            statusText = '✅ 已配置';
+            statusClass = 'available';
+          } else {
+            cardClass = 'unavailable';
+            statusText = '❌ 缺少 API Key';
+            statusClass = 'unavailable';
+          }
+        } else {
+          cardClass = 'unavailable';
+          statusText = '❌ 不可用';
+          statusClass = 'unavailable';
+        }
+
+        html += '<div class="provider-card ' + cardClass + '">';
+        html += '<div class="provider-name">';
+        html += provider.name;
+        html += `<span class="provider-status ${statusClass}">${statusText}</span>`;
+        html += '</div>';
+        html += '<div class="provider-details">';
+
+        if (config.hasApiKey) {
+          html += `API Key: <code>${config.apiKeyPrefix || '已配置'}</code><br>`;
+          html += `Base URL: <code>${config.baseURL || '未设置'}</code>`;
+        } else {
+          html += '需要配置 API Key 和 Base URL';
+        }
+
+        html += '</div>';
+        html += '</div>';
+      }
+
+      container.innerHTML = html;
+    }
+
+    async function testImageGeneration() {
+      const button = document.getElementById('testButton');
+      const resultDiv = document.getElementById('testResult');
+
+      button.disabled = true;
+      button.innerHTML = '测试中... <span class="loading"></span>';
+      resultDiv.style.display = 'none';
+
+      try {
+        const response = await fetch('/api/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: '温馨浪漫的场景，适合情侣',
+            personalityId: 'sweet'
+          }),
+        });
+
+        const data = await response.json();
+
+        resultDiv.style.display = 'block';
+        if (data.success && data.imageUrl) {
+          resultDiv.className = 'test-result success';
+          resultDiv.innerHTML = `
+            <strong>✅ 测试成功！</strong><br>
+            图片已生成<br>
+            <a href="${data.imageUrl}" target="_blank" style="color: inherit; text-decoration: underline;">查看图片</a>
+          `;
+        } else {
+          resultDiv.className = 'test-result error';
+          resultDiv.innerHTML = `
+            <strong>❌ 测试失败</strong><br>
+            ${data.error || '未知错误'}<br>
+            <small>请检查上方 Provider 状态和配置</small>
+          `;
+        }
+      } catch (error) {
+        resultDiv.style.display = 'block';
+        resultDiv.className = 'test-result error';
+        resultDiv.innerHTML = `
+          <strong>❌ 测试异常</strong><br>
+          ${error.message}<br>
+          <small>请检查服务器是否正常运行</small>
+        `;
+      } finally {
+        button.disabled = false;
+        button.innerHTML = '测试图片生成';
+      }
+    }
+
+    // 页面加载时获取状态
+    window.addEventListener('load', () => {
+      loadStatus();
+      // 每30秒自动刷新状态
+      setInterval(loadStatus, 30000);
+    });
+  </script>
+</body>
+</html>
