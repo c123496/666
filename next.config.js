@@ -1,9 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 禁用 Turbopack，使用传统 Webpack
-  experimental: {
-    turbo: undefined,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lf-coze-web-cdn.coze.cn',
+        pathname: '/**',
+      },
+    ],
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;

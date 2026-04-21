@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import './globals.css';
+import { Navbar } from '@/components/navbar';
 
 export const metadata: Metadata = {
   title: '虚拟男友 - 你的AI伴侣',
@@ -12,7 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        <Navbar />
+        <main className="pt-16">{children}</main>
+      </body>
     </html>
   );
 }

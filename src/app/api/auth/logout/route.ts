@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
-import { clearSession } from '@/lib/auth';
 
 export async function POST() {
-  try {
-    await clearSession();
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Logout error:', error);
-    return NextResponse.json(
-      { error: '登出失败' },
-      { status: 500 }
-    );
-  }
+  const response = NextResponse.json({
+    success: true,
+    message: '登出成功',
+  });
+
+  // 清除cookies
+  response.cookies.delete('user_id');
+  response.cookies.delete('username');
+
+  return response;
 }

@@ -1,5 +1,5 @@
 // Provider 类型定义
-export type ProviderType = 'volcengine' | 'coze' | 'gptimage' | 'temp';
+export type ProviderType = 'volcengine' | 'coze' | 'temp';
 
 // 消息类型
 export interface ProviderMessage {

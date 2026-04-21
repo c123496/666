@@ -19,7 +19,7 @@ async function seed() {
 
   if (!existingAdmin) {
     await db.insert(users).values({
-      name: '系统管理员',
+      username: 'admin',
       email: adminEmail,
       password: hashedPassword,
       isAdmin: true,
@@ -35,9 +35,9 @@ async function seed() {
 
   // 创建测试用户（使用哈希密码）
   const testUsers = [
-    { name: '张三', email: 'zhangsan@example.com', password: 'password123' },
-    { name: '李四', email: 'lisi@example.com', password: 'password123' },
-    { name: '王五', email: 'wangwu@example.com', password: 'password123' },
+    { username: 'zhangsan', email: 'zhangsan@example.com', password: 'password123' },
+    { username: 'lisi', email: 'lisi@example.com', password: 'password123' },
+    { username: 'wangwu', email: 'wangwu@example.com', password: 'password123' },
   ];
 
   for (const userData of testUsers) {
@@ -48,13 +48,13 @@ async function seed() {
     if (!existing) {
       const hashedTestPassword = await bcrypt.hash(userData.password, 10);
       await db.insert(users).values({
-        name: userData.name,
+        username: userData.username,
         email: userData.email,
         password: hashedTestPassword,
         isAdmin: false,
         status: 'active',
       });
-      console.log(`✓ 创建测试用户: ${userData.name}`);
+      console.log(`✓ 创建测试用户: ${userData.username}`);
     }
   }
 

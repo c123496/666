@@ -16,6 +16,7 @@ export interface Personality {
   traits: string[];
   defaultResponses?: string[];
   systemPrompt: string;
+  prompt?: string;
   voice: {
     speaker: string;
     speechRate: number;
@@ -77,6 +78,7 @@ export interface ChatRequest {
     role: 'user' | 'assistant';
     content: string;
   }>;
+  userId?: string;
 }
 
 // 对话响应

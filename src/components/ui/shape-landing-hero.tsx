@@ -4,6 +4,14 @@ import { motion, type Variants } from "framer-motion";
 import { Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface ElegantShapeProps {
+    className?: string;
+    delay?: number;
+    width?: number;
+    height?: number;
+    rotate?: number;
+    gradient?: string;
+}
 
 function ElegantShape({
     className,
@@ -12,14 +20,7 @@ function ElegantShape({
     height = 100,
     rotate = 0,
     gradient = "from-white/[0.08]",
-}: {
-    className?: string;
-    delay?: number;
-    width?: number;
-    height?: number;
-    rotate?: number;
-    gradient?: string;
-}) {
+}: ElegantShapeProps) {
     return (
         <motion.div
             initial={{
@@ -71,17 +72,23 @@ function ElegantShape({
     );
 }
 
-function HeroGeometric({
-    badge = "Design Collective",
-    title1 = "Elevate Your Digital Vision",
-    title2 = "Crafting Exceptional Websites",
-    onBadgeClick,
-}: {
+interface HeroGeometricProps {
     badge?: string;
     title1?: string;
     title2?: string;
+    description?: string;
     onBadgeClick?: () => void;
-}) {
+    onStart?: () => void;
+}
+
+export function HeroGeometric({
+    badge = "Design Collective",
+    title1 = "Elevate Your Digital Vision",
+    title2 = "Crafting Exceptional Websites",
+    description = "Crafting exceptional digital experiences through innovative design and cutting-edge technology.",
+    onBadgeClick,
+    onStart,
+}: HeroGeometricProps) {
     const fadeUpVariants: Variants = {
         hidden: { opacity: 0, y: 30 },
         visible: (i: number) => ({
@@ -177,7 +184,7 @@ function HeroGeometric({
                             <br />
                             <span
                                 className={cn(
-                                    "bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white/90 to-rose-300 "
+                                    "bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white/90 to-rose-300"
                                 )}
                             >
                                 {title2}
@@ -192,10 +199,25 @@ function HeroGeometric({
                         animate="visible"
                     >
                         <p className="text-base sm:text-lg md:text-xl text-white/40 mb-8 leading-relaxed font-light tracking-wide max-w-xl mx-auto px-4">
-                            Crafting exceptional digital experiences through
-                            innovative design and cutting-edge technology.
+                            {description}
                         </p>
                     </motion.div>
+
+                    {onStart && (
+                        <motion.div
+                            custom={3}
+                            variants={fadeUpVariants}
+                            initial="hidden"
+                            animate="visible"
+                        >
+                            <button
+                                onClick={onStart}
+                                className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-rose-500 text-white rounded-full font-semibold text-lg hover:opacity-90 transition-all hover:scale-105 active:scale-95 shadow-lg"
+                            >
+                                开始体验 →
+                            </button>
+                        </motion.div>
+                    )}
                 </div>
             </div>
 
@@ -203,5 +225,3 @@ function HeroGeometric({
         </div>
     );
 }
-
-export { HeroGeometric }

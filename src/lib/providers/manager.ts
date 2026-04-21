@@ -13,7 +13,6 @@ import {
   VideoGenerationResult,
 } from './types';
 import { ApiError } from '@/lib/api-error';
-import { GPTImageProvider } from './gptimage/image';
 import { VolcengineImageProvider } from './volcengine/image';
 import { CozeImageProvider } from './coze/image';
 import { TempImageProvider } from './temp/image';
@@ -40,12 +39,11 @@ export class ProviderManager {
   }
 
   private initializeProviders(): void {
-    // 图像生成：GPT-Image 优先（现在有正确的 API Key），火山引擎备用，最后 Coze，临时服务作为最后备用
+    // 图像生成：火山引擎 Seedream 主要方案，Coze 备用，最后临时服务
     this.imageProviders = [
-      new GPTImageProvider(),     // 主要方案：GPT-Image API
-      new VolcengineImageProvider(), // 备用方案
-      new CozeImageProvider(),    // 最后备用
-      new TempImageProvider(),    // 临时方案：使用免费图片服务（最后备用）
+      new VolcengineImageProvider(), // 主要方案：火山方舟 Seedream API
+      new CozeImageProvider(),       // 备用方案
+      new TempImageProvider(),       // 临时方案：使用免费图片服务（最后备用）
     ];
 
     // 注意：聊天、TTS、视频暂未实现火山引擎 Provider，只用 Coze
