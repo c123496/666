@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { users, type User } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { SignJWT, jwtVerify } from 'jose';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const SESSION_COOKIE_NAME = 'admin_session';
 const SESSION_SECRET = new TextEncoder().encode(
