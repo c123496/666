@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const { createServer } = require('http');
-const { parse } = require('url');
 const next = require('next');
 
 const projectDir = path.resolve(__dirname, '..');
@@ -45,7 +44,8 @@ app.prepare().then(() => {
   createServer(async (req, res) => {
     try {
       console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-      const parsedUrl = parse(req.url || '/', true);
+      // 使用 WHATWG URL API 替代已废弃的 url.parse()
+      const parsedUrl = new URL(req.url || '/', `http://${hostname}`);
       await handle(req, res, parsedUrl);
     } catch (error) {
       console.error('Request handling error:', error);

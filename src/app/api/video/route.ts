@@ -4,7 +4,7 @@ import { VideoRequest } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 900; // 15分钟超时，匹配视频生成时间
+export const maxDuration = 300; // Vercel Hobby 计划限制最多 300 秒
 
 export async function POST(request: NextRequest) {
   try {
