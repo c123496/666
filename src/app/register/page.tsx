@@ -15,6 +15,16 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // 获取 site key，如果不存在则显示错误
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
+  // 开发环境：打印 site key 状态
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    console.log('[Turnstile Debug] NEXT_PUBLIC_TURNSTILE_SITE_KEY:', siteKey);
+    console.log('[Turnstile Debug] Site key exists:', !!siteKey);
+    console.log('[Turnstile Debug] Site key length:', siteKey?.length || 0);
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -49,6 +59,11 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      // 开发环境：打印提交的 token 状态
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Turnstile Debug] Submitting with token:', turnstileToken ? '***TOKEN***' : 'NO TOKEN');
+      }
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
@@ -149,22 +164,31 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* Turnstile 验证 */}
-            <div className="flex justify-center">
-              <Turnstile
-                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-                onSuccess={(token) => {
-                  setTurnstileToken(token);
-                }}
-                onError={() => {
-                  setError('人机验证失败，请刷新页面重试');
-                  setTurnstileToken(null);
-                }}
-                onExpire={() => {
-                  setTurnstileToken(null);
-                }}
-              />
-            </div>
+            {/* Turnstile 验证 - 添加保护检查 */}
+            {siteKey ? (
+              <div className="flex justify-center">
+                <Turnstile
+                  siteKey={siteKey}
+                  onSuccess={(token) => {
+                    console.log('[Turnstile Debug] Token received:', !!token);
+                    setTurnstileToken(token);
+                  }}
+                  onError={() => {
+                    console.error('[Turnstile Debug] Verification failed');
+                    setError('人机验证失败，请刷新页面重试');
+                    setTurnstileToken(null);
+                  }}
+                  onExpire={() => {
+                    console.log('[Turnstile Debug] Token expired');
+                    setTurnstileToken(null);
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm text-center">
+                ⚠️ 人机验证未配置：请在 .env.local 中设置 NEXT_PUBLIC_TURNSTILE_SITE_KEY
+              </div>
+            )}
 
             {/* 注册按钮 */}
             <button
