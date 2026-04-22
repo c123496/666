@@ -160,7 +160,7 @@ export default function Home() {
       {/* ==================== 首页 - 几何形状 Hero ==================== */}
       {view === 'hero' && (
         <HeroGeometric
-          badge="虚拟男友体验"
+          badge="敏敏虚拟男友体验"
           title1="遇见你的"
           title2="完美男友"
           description="体验最温暖的陪伴，最贴心的关怀，最浪漫的时刻。四种不同风格，总有一款适合你。"
