@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Turnstile } from '@marsidev/react-turnstile';
 
@@ -14,16 +14,34 @@ export default function RegisterPage() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  const [siteKey, setSiteKey] = useState<string>('');
 
-  // 获取 site key，如果不存在则显示错误
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  // 只在客户端初始化 site key
+  useEffect(() => {
+    setIsClient(true);
+    const key = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
 
-  // 开发环境：打印 site key 状态
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    console.log('[Turnstile Debug] NEXT_PUBLIC_TURNSTILE_SITE_KEY:', siteKey);
-    console.log('[Turnstile Debug] Site key exists:', !!siteKey);
-    console.log('[Turnstile Debug] Site key length:', siteKey?.length || 0);
-  }
+    // 开发环境：打印详细调试信息
+    if (process.env.NODE_ENV === 'development') {
+      console.log('=== Turnstile 环境变量诊断（RegisterPage）===');
+      console.log('是否客户端:', typeof window !== 'undefined');
+      console.log('NEXT_PUBLIC_TURNSTILE_SITE_KEY:', key);
+      console.log('Site Key 存在:', !!key);
+      console.log('Site Key 长度:', key.length);
+      console.log('process.env.NODE_ENV:', process.env.NODE_ENV);
+      console.log('=========================================');
+    }
+
+    setSiteKey(key);
+
+    // 如果 site key 不存在，在开发环境显示警告
+    if (!key && process.env.NODE_ENV === 'development') {
+      console.error('❌ NEXT_PUBLIC_TURNSTILE_SITE_KEY 未定义！');
+      console.error('请在 .env.local 中设置：NEXT_PUBLIC_TURNSTILE_SITE_KEY=你的SiteKey');
+      console.error('设置后请重启开发服务器（Ctrl+C 然后 pnpm run dev）');
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +79,7 @@ export default function RegisterPage() {
     try {
       // 开发环境：打印提交的 token 状态
       if (process.env.NODE_ENV === 'development') {
-        console.log('[Turnstile Debug] Submitting with token:', turnstileToken ? '***TOKEN***' : 'NO TOKEN');
+        console.log('[Turnstile] 提交注册，Token 状态:', turnstileToken ? '✅ 存在' : '❌ 缺失');
       }
 
       const response = await fetch('/api/auth/register', {
@@ -91,6 +109,15 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
+
+  // 服务端渲染时不显示 Turnstile
+  if (!isClient) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#030303] px-4">
+        <div className="text-white/60">加载中...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#030303] px-4">
@@ -164,29 +191,38 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* Turnstile 验证 - 添加保护检查 */}
+            {/* Turnstile 验证 - 添加多层保护 */}
             {siteKey ? (
               <div className="flex justify-center">
                 <Turnstile
                   siteKey={siteKey}
                   onSuccess={(token) => {
-                    console.log('[Turnstile Debug] Token received:', !!token);
+                    console.log('[Turnstile] ✅ Token 接收成功');
                     setTurnstileToken(token);
                   }}
                   onError={() => {
-                    console.error('[Turnstile Debug] Verification failed');
+                    console.error('[Turnstile] ❌ 验证失败');
                     setError('人机验证失败，请刷新页面重试');
                     setTurnstileToken(null);
                   }}
                   onExpire={() => {
-                    console.log('[Turnstile Debug] Token expired');
+                    console.log('[Turnstile] ⏰ Token 过期');
                     setTurnstileToken(null);
                   }}
                 />
               </div>
             ) : (
               <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm text-center">
-                ⚠️ 人机验证未配置：请在 .env.local 中设置 NEXT_PUBLIC_TURNSTILE_SITE_KEY
+                <div className="font-bold mb-2">⚠️ 人机验证未配置</div>
+                <div className="text-xs">
+                  请在 .env.local 中添加：<br/>
+                  <code className="block mt-2 p-2 bg-black/30 rounded">
+                    NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAADBK-6FEmTQHUZtg
+                  </code>
+                  <div className="mt-2 text-orange-300">
+                    添加后请重启开发服务器（Ctrl+C 然后 pnpm run dev）
+                  </div>
+                </div>
               </div>
             )}
 
