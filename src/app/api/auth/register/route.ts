@@ -11,19 +11,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    console.log('=== 注册请求 ===');
-    console.log('收到的数据:', {
-      ...body,
-      password: '***',
-      turnstileToken: body.turnstileToken ? '***HAS_TOKEN***' : 'NO_TOKEN'
-    });
-
     // 从请求体中拿到前端传来的 Turnstile token
     const { turnstileToken, ...registrationData } = body;
 
     // 验证 token 是否存在
     if (!turnstileToken) {
-      console.log('❌ Turnstile token 缺失');
+      console.error('[Turnstile] Token 缺失');
       return NextResponse.json(
         { error: '请完成人机验证' },
         { status: 400 }
@@ -34,18 +27,6 @@ export async function POST(request: NextRequest) {
     const isProduction = process.env.NODE_ENV === 'production';
     const envSecretKey = process.env.TURNSTILE_SECRET_KEY || '';
     const secretKey = (isProduction && envSecretKey) ? envSecretKey : TESTING_SECRET_KEY;
-
-    // 开发环境：打印调试信息（不打印完整 secret）
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Turnstile] 配置诊断:');
-      console.log('  环境:', process.env.NODE_ENV);
-      console.log('  是否生产:', isProduction);
-      console.log('  使用测试 secret:', !isProduction || !envSecretKey);
-      console.log('  Secret 存在:', !!secretKey);
-      console.log('  Secret 长度:', secretKey.length);
-      console.log('  Token 存在:', !!turnstileToken);
-      console.log('  Token 长度:', turnstileToken.length);
-    }
 
     // 调用 Cloudflare API 验证 token（带超时保护）
     let verifyResult;
@@ -68,25 +49,17 @@ export async function POST(request: NextRequest) {
 
       clearTimeout(timeoutId);
       verifyResult = await verifyResponse.json();
-
-      // 开发环境：打印验证结果
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Turnstile] 验证结果:');
-        console.log('  成功:', verifyResult.success);
-        console.log('  错误代码:', verifyResult['error-codes'] || []);
-        console.log('  挑战时间:', verifyResult.challenge_ts || null);
-      }
     } catch (fetchError: any) {
       // 处理网络错误或超时
       if (fetchError.name === 'AbortError') {
-        console.error('[Turnstile] ❌ 验证超时');
+        console.error('[Turnstile] 验证超时');
         return NextResponse.json(
           { error: '人机验证超时，请刷新页面重试' },
           { status: 504 }
         );
       }
 
-      console.error('[Turnstile] ❌ 验证请求失败:', fetchError);
+      console.error('[Turnstile] 验证请求失败:', fetchError);
       return NextResponse.json(
         { error: '人机验证服务暂时不可用，请稍后重试' },
         { status: 503 }
@@ -95,12 +68,11 @@ export async function POST(request: NextRequest) {
 
     // 如果验证失败，直接拒绝
     if (!verifyResult.success) {
-      console.log('❌ Turnstile 验证失败');
-      console.log('错误代码:', verifyResult['error-codes']);
+      const errorCodes = verifyResult['error-codes'] || [];
+      console.error('[Turnstile] 验证失败:', errorCodes);
 
       // 根据错误代码返回友好提示
       let errorMsg = '人机验证失败，请重试';
-      const errorCodes = verifyResult['error-codes'] || [];
 
       if (errorCodes.includes('invalid-input-response')) {
         errorMsg = '验证响应无效，请刷新页面重试';
@@ -111,21 +83,16 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        {
-          error: errorMsg,
-          debug: process.env.NODE_ENV === 'development' ? errorCodes : undefined
-        },
+        { error: errorMsg },
         { status: 403 }
       );
     }
-
-    console.log('✅ Turnstile 验证通过');
 
     // 验证通过，继续正常的注册流程
     const validationResult = registerSchema.safeParse(registrationData);
 
     if (!validationResult.success) {
-      console.log('❌ 数据验证失败:', validationResult.error.issues);
+      console.error('[注册] 数据验证失败:', validationResult.error.issues);
       return NextResponse.json(
         { error: validationResult.error.issues[0].message },
         { status: 400 }
@@ -134,15 +101,13 @@ export async function POST(request: NextRequest) {
 
     const { email, password } = validationResult.data;
 
-    console.log('✅ 数据验证通过，email:', email);
-
     // 检查邮箱是否已存在
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
 
     if (existingUser) {
-      console.log('❌ 邮箱已被注册');
+      console.error('[注册] 邮箱已被注册:', email);
       return NextResponse.json(
         { error: '该邮箱已被注册' },
         { status: 409 }
@@ -169,7 +134,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log('✅ 用户创建成功，ID:', user.id);
+    console.log('[注册] 用户创建成功, ID:', user.id);
 
     // 设置会话
     const response = NextResponse.json(
@@ -194,7 +159,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('❌ 注册错误:', error);
+    console.error('[注册] 服务器错误:', error);
     return NextResponse.json(
       { error: '注册失败，请稍后重试' },
       { status: 500 }

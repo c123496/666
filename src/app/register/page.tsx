@@ -42,27 +42,15 @@ export default function RegisterPage() {
       // 开发环境：默认使用测试 key
       selectedSiteKey = TESTING_SITE_KEY;
       usingTestKey = true;
-
-      console.warn('[Turnstile] 开发环境使用 Cloudflare 官方测试 key');
-      console.warn('[Turnstile] 如需在本地测试正式 key，请在 Cloudflare 后台添加 localhost 域名');
     } else {
       // 生产环境但没有配置正式 key
-      console.error('[Turnstile] ❌ 生产环境未配置 NEXT_PUBLIC_TURNSTILE_SITE_KEY');
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[Turnstile] ❌ 生产环境未配置 NEXT_PUBLIC_TURNSTILE_SITE_KEY');
+      }
     }
 
     setSiteKey(selectedSiteKey);
     setIsUsingTestKey(usingTestKey);
-
-    // 开发环境：打印调试信息
-    if (process.env.NODE_ENV === 'development') {
-      console.log('=== Turnstile 配置诊断 ===');
-      console.log('环境:', process.env.NODE_ENV);
-      console.log('是否生产环境:', isProduction);
-      console.log('使用测试 key:', usingTestKey);
-      console.log('Site Key:', selectedSiteKey);
-      console.log('Site Key 存在:', !!selectedSiteKey);
-      console.log('========================');
-    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -184,11 +172,6 @@ export default function RegisterPage() {
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white mb-2">注册账号</h1>
             <p className="text-white/60">加入哄哄模拟器</p>
-            {isUsingTestKey && process.env.NODE_ENV === 'development' && (
-              <div className="mt-2 text-xs text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded">
-                🔧 开发模式：使用 Cloudflare 测试 key
-              </div>
-            )}
           </div>
 
           {/* 表单 */}
@@ -257,12 +240,11 @@ export default function RegisterPage() {
                 <Turnstile
                   siteKey={siteKey}
                   onSuccess={(token) => {
-                    console.log('[Turnstile] ✅ 验证成功');
                     setTurnstileToken(token);
                     setTurnstileError('');
                   }}
                   onError={(errorCode) => {
-                    console.warn('[Turnstile] ⚠️ 加载失败, errorCode:', errorCode);
+                    console.error('[Turnstile] 加载失败:', errorCode);
 
                     // 检测可能的 AdBlock 拦截
                     const isAdblockPossible = errorCode === '100401' || errorCode === '100402';
@@ -282,18 +264,11 @@ export default function RegisterPage() {
                     setTurnstileToken(null);
                   }}
                   onExpire={() => {
-                    console.log('[Turnstile] ⏰ 验证过期');
                     setTurnstileToken(null);
                     setTurnstileError('验证已过期，请重新验证');
                   }}
                 />
               </div>
-
-              {isUsingTestKey && process.env.NODE_ENV === 'development' && (
-                <div className="text-xs text-gray-500 text-center">
-                  💡 开发环境提示：当前使用 Cloudflare 测试 key，任何输入都会通过验证
-                </div>
-              )}
             </div>
 
             {/* 注册按钮 */}
