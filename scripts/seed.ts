@@ -1,7 +1,7 @@
 import { db } from '../src/db';
 import { users, orders } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 async function seed() {
   console.log('开始初始化数据库...');
