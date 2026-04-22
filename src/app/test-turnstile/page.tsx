@@ -174,10 +174,16 @@ export default function TestTurnstilePage() {
         {/* 返回首页 */}
         <div className="mt-8 text-center">
           <a
-            href="/"
-            className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition-colors"
+            href="http://localhost:5000"
+            className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition-colors mr-4"
           >
-            返回首页
+            返回首页 (localhost:5000)
+          </a>
+          <a
+            href="http://localhost:5000/register"
+            className="inline-block px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition-colors"
+          >
+            注册页面
           </a>
         </div>
       </div>
