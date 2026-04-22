@@ -3,6 +3,10 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { registerSchema } from '@/lib/validations/auth';
 
+// Cloudflare 官方测试 key（仅用于开发环境）
+const TESTING_SITE_KEY = '1x00000000000000000000AA';
+const TESTING_SECRET_KEY = '1x0000000000000000000000000000000AA';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -22,32 +26,33 @@ export async function POST(request: NextRequest) {
       console.log('❌ Turnstile token 缺失');
       return NextResponse.json(
         { error: '请完成人机验证' },
-        { status: 403 }
+        { status: 400 }
       );
     }
 
-    // 获取 secret key
-    const secretKey = process.env.TURNSTILE_SECRET_KEY;
+    // 根据环境选择 secret key
+    const isProduction = process.env.NODE_ENV === 'production';
+    const envSecretKey = process.env.TURNSTILE_SECRET_KEY || '';
+    const secretKey = (isProduction && envSecretKey) ? envSecretKey : TESTING_SECRET_KEY;
 
-    // 开发环境：打印 secret key 状态（不打印完整值）
+    // 开发环境：打印调试信息（不打印完整 secret）
     if (process.env.NODE_ENV === 'development') {
-      console.log('[Turnstile Debug] TURNSTILE_SECRET_KEY exists:', !!secretKey);
-      console.log('[Turnstile Debug] TURNSTILE_SECRET_KEY length:', secretKey?.length || 0);
-      console.log('[Turnstile Debug] Turnstile token exists:', !!turnstileToken);
-      console.log('[Turnstile Debug] Turnstile token length:', turnstileToken?.length || 0);
+      console.log('[Turnstile] 配置诊断:');
+      console.log('  环境:', process.env.NODE_ENV);
+      console.log('  是否生产:', isProduction);
+      console.log('  使用测试 secret:', !isProduction || !envSecretKey);
+      console.log('  Secret 存在:', !!secretKey);
+      console.log('  Secret 长度:', secretKey.length);
+      console.log('  Token 存在:', !!turnstileToken);
+      console.log('  Token 长度:', turnstileToken.length);
     }
 
-    // 如果没有配置 secret key，开发环境跳过验证
-    if (!secretKey) {
-      console.warn('⚠️ TURNSTILE_SECRET_KEY 未配置，跳过验证（仅开发环境）');
-      if (process.env.NODE_ENV === 'production') {
-        return NextResponse.json(
-          { error: '服务器配置错误' },
-          { status: 500 }
-        );
-      }
-    } else {
-      // 去 Cloudflare 验证这个 token 是不是真的
+    // 调用 Cloudflare API 验证 token（带超时保护）
+    let verifyResult;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+
       const verifyResponse = await fetch(
         'https://challenges.cloudflare.com/turnstile/v0/siteverify',
         {
@@ -57,34 +62,64 @@ export async function POST(request: NextRequest) {
             secret: secretKey,
             response: turnstileToken,
           }),
+          signal: controller.signal,
         }
       );
 
-      const verifyResult = await verifyResponse.json();
+      clearTimeout(timeoutId);
+      verifyResult = await verifyResponse.json();
 
       // 开发环境：打印验证结果
       if (process.env.NODE_ENV === 'development') {
-        console.log('[Turnstile Debug] Verification result:', {
-          success: verifyResult.success,
-          'error-codes': verifyResult['error-codes'] || [],
-          challenge_ts: verifyResult.challenge_ts || null,
-        });
+        console.log('[Turnstile] 验证结果:');
+        console.log('  成功:', verifyResult.success);
+        console.log('  错误代码:', verifyResult['error-codes'] || []);
+        console.log('  挑战时间:', verifyResult.challenge_ts || null);
       }
-
-      // 如果验证失败，直接拒绝
-      if (!verifyResult.success) {
-        console.log('❌ Turnstile 验证失败:', verifyResult);
+    } catch (fetchError: any) {
+      // 处理网络错误或超时
+      if (fetchError.name === 'AbortError') {
+        console.error('[Turnstile] ❌ 验证超时');
         return NextResponse.json(
-          {
-            error: '人机验证失败，请重试',
-            debug: process.env.NODE_ENV === 'development' ? verifyResult['error-codes'] : undefined
-          },
-          { status: 403 }
+          { error: '人机验证超时，请刷新页面重试' },
+          { status: 504 }
         );
       }
 
-      console.log('✅ Turnstile 验证通过');
+      console.error('[Turnstile] ❌ 验证请求失败:', fetchError);
+      return NextResponse.json(
+        { error: '人机验证服务暂时不可用，请稍后重试' },
+        { status: 503 }
+      );
     }
+
+    // 如果验证失败，直接拒绝
+    if (!verifyResult.success) {
+      console.log('❌ Turnstile 验证失败');
+      console.log('错误代码:', verifyResult['error-codes']);
+
+      // 根据错误代码返回友好提示
+      let errorMsg = '人机验证失败，请重试';
+      const errorCodes = verifyResult['error-codes'] || [];
+
+      if (errorCodes.includes('invalid-input-response')) {
+        errorMsg = '验证响应无效，请刷新页面重试';
+      } else if (errorCodes.includes('timeout-or-duplicate')) {
+        errorMsg = '验证已过期或重复提交，请刷新页面重试';
+      } else if (errorCodes.includes('internal-error')) {
+        errorMsg = '验证服务内部错误，请稍后重试';
+      }
+
+      return NextResponse.json(
+        {
+          error: errorMsg,
+          debug: process.env.NODE_ENV === 'development' ? errorCodes : undefined
+        },
+        { status: 403 }
+      );
+    }
+
+    console.log('✅ Turnstile 验证通过');
 
     // 验证通过，继续正常的注册流程
     const validationResult = registerSchema.safeParse(registrationData);

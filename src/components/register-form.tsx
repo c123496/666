@@ -11,6 +11,10 @@ interface RegisterFormProps {
   onBack: () => void;
 }
 
+// Cloudflare 官方测试 key（仅用于开发环境）
+const TESTING_SITE_KEY = '1x00000000000000000000AA';
+const TESTING_SECRET_KEY = '1x0000000000000000000000000000000AA';
+
 export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -23,36 +27,55 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
   const [loading, setLoading] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [siteKey, setSiteKey] = useState<string>('');
+  const [turnstileError, setTurnstileError] = useState<string>('');
+  const [isUsingTestKey, setIsUsingTestKey] = useState(false);
 
   // 只在客户端初始化 site key
   useEffect(() => {
     setIsClient(true);
-    const key = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
 
-    // 开发环境：打印详细调试信息
-    if (process.env.NODE_ENV === 'development') {
-      console.log('=== Turnstile 环境变量诊断（RegisterForm）===');
-      console.log('是否客户端:', typeof window !== 'undefined');
-      console.log('NEXT_PUBLIC_TURNSTILE_SITE_KEY:', key);
-      console.log('Site Key 存在:', !!key);
-      console.log('Site Key 长度:', key.length);
-      console.log('process.env.NODE_ENV:', process.env.NODE_ENV);
-      console.log('=========================================');
+    // 根据环境选择 site key
+    const isProduction = process.env.NODE_ENV === 'production';
+    const envSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
+
+    let selectedSiteKey = '';
+    let usingTestKey = false;
+
+    if (isProduction && envSiteKey) {
+      // 生产环境：使用正式 key
+      selectedSiteKey = envSiteKey;
+      usingTestKey = false;
+    } else if (!isProduction) {
+      // 开发环境：默认使用测试 key
+      selectedSiteKey = TESTING_SITE_KEY;
+      usingTestKey = true;
+
+      console.warn('[Turnstile] 开发环境使用 Cloudflare 官方测试 key');
+      console.warn('[Turnstile] 如需在本地测试正式 key，请在 Cloudflare 后台添加 localhost 域名');
+    } else {
+      // 生产环境但没有配置正式 key
+      console.error('[Turnstile] ❌ 生产环境未配置 NEXT_PUBLIC_TURNSTILE_SITE_KEY');
     }
 
-    setSiteKey(key);
+    setSiteKey(selectedSiteKey);
+    setIsUsingTestKey(usingTestKey);
 
-    // 如果 site key 不存在，在开发环境显示警告
-    if (!key && process.env.NODE_ENV === 'development') {
-      console.error('❌ NEXT_PUBLIC_TURNSTILE_SITE_KEY 未定义！');
-      console.error('请在 .env.local 中设置：NEXT_PUBLIC_TURNSTILE_SITE_KEY=你的SiteKey');
-      console.error('设置后请重启开发服务器（Ctrl+C 然后 pnpm run dev）');
+    // 开发环境：打印调试信息
+    if (process.env.NODE_ENV === 'development') {
+      console.log('=== Turnstile 配置诊断 ===');
+      console.log('环境:', process.env.NODE_ENV);
+      console.log('是否生产环境:', isProduction);
+      console.log('使用测试 key:', usingTestKey);
+      console.log('Site Key:', selectedSiteKey);
+      console.log('Site Key 存在:', !!selectedSiteKey);
+      console.log('========================');
     }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setTurnstileError('');
 
     // 验证 Turnstile token
     if (!turnstileToken) {
@@ -86,11 +109,6 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
     setLoading(true);
 
     try {
-      // 开发环境：打印提交的 token 状态
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Turnstile] 提交注册，Token 状态:', turnstileToken ? '✅ 存在' : '❌ 缺失');
-      }
-
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
@@ -106,14 +124,20 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
       const data = await response.json();
 
       if (!response.ok) {
+        // 如果是 Turnstile 验证失败，清空 token
+        if (response.status === 403) {
+          setTurnstileToken(null);
+          setTurnstileError('人机验证失败，请重新验证');
+        }
         setError(data.error || '注册失败');
         return;
       }
 
-      // 注册成功，调用回调函数
+      // 注册成功，清空 token 并调用回调
+      setTurnstileToken(null);
       onSuccess();
     } catch (err) {
-      console.error('请求错误:', err);
+      console.error('[注册] 请求错误:', err);
       setError('网络错误，请稍后重试');
     } finally {
       setLoading(false);
@@ -125,6 +149,30 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
     return (
       <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-[#030303] px-4">
         <div className="text-white/60">加载中...</div>
+      </div>
+    );
+  }
+
+  // 如果没有 site key，显示配置提示
+  if (!siteKey) {
+    return (
+      <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-[#030303] px-4">
+        <div className="relative z-10 w-full max-w-md">
+          <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-8">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm text-center">
+              <div className="font-bold mb-2">⚠️ 人机验证未配置</div>
+              <div className="text-xs">
+                生产环境请在 .env.local 中添加：<br/>
+                <code className="block mt-2 p-2 bg-black/30 rounded">
+                  NEXT_PUBLIC_TURNSTILE_SITE_KEY=你的正式SiteKey
+                </code>
+                <div className="mt-2 text-orange-300">
+                  添加后请重启开发服务器并重新部署
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -145,6 +193,11 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white mb-2">邮箱注册</h1>
             <p className="text-white/60">创建账号，开始你的专属体验</p>
+            {isUsingTestKey && process.env.NODE_ENV === 'development' && (
+              <div className="mt-2 text-xs text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded">
+                🔧 开发模式：使用 Cloudflare 测试 key
+              </div>
+            )}
           </div>
 
           {/* 表单 */}
@@ -205,40 +258,56 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
               />
             </div>
 
-            {/* Turnstile 验证 - 添加多层保护 */}
-            {siteKey ? (
+            {/* Turnstile 验证 */}
+            <div className="space-y-2">
+              {turnstileError && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-3 py-2 rounded-lg text-xs">
+                  {turnstileError}
+                </div>
+              )}
+
               <div className="flex justify-center">
                 <Turnstile
                   siteKey={siteKey}
                   onSuccess={(token) => {
-                    console.log('[Turnstile] ✅ Token 接收成功');
+                    console.log('[Turnstile] ✅ 验证成功');
                     setTurnstileToken(token);
+                    setTurnstileError('');
                   }}
-                  onError={() => {
-                    console.error('[Turnstile] ❌ 验证失败');
-                    setError('人机验证失败，请刷新页面重试');
+                  onError={(errorCode) => {
+                    console.warn('[Turnstile] ⚠️ 加载失败, errorCode:', errorCode);
+
+                    // 检测可能的 AdBlock 拦截
+                    const isAdblockPossible = errorCode === '100401' || errorCode === '100402';
+
+                    let errorMsg = '人机验证加载失败';
+                    if (isAdblockPossible) {
+                      errorMsg = '人机验证被拦截，请关闭广告拦截插件后刷新重试';
+                    } else if (errorCode === '110000') {
+                      errorMsg = '验证组件响应超时，请刷新页面重试';
+                    } else if (errorCode === '300010') {
+                      errorMsg = 'Turnstile 服务暂时不可用，请稍后重试';
+                    } else if (errorCode === '300030') {
+                      errorMsg = '验证组件参数错误，请联系管理员';
+                    }
+
+                    setTurnstileError(errorMsg);
                     setTurnstileToken(null);
                   }}
                   onExpire={() => {
-                    console.log('[Turnstile] ⏰ Token 过期');
+                    console.log('[Turnstile] ⏰ 验证过期');
                     setTurnstileToken(null);
+                    setTurnstileError('验证已过期，请重新验证');
                   }}
                 />
               </div>
-            ) : (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm text-center">
-                <div className="font-bold mb-2">⚠️ 人机验证未配置</div>
-                <div className="text-xs">
-                  请在 .env.local 中添加：<br/>
-                  <code className="block mt-2 p-2 bg-black/30 rounded">
-                    NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAADBK-6FEmTQHUZtg
-                  </code>
-                  <div className="mt-2 text-orange-300">
-                    添加后请重启开发服务器（Ctrl+C 然后 pnpm run dev）
-                  </div>
+
+              {isUsingTestKey && process.env.NODE_ENV === 'development' && (
+                <div className="text-xs text-gray-500 text-center">
+                  💡 开发环境提示：当前使用 Cloudflare 测试 key，任何输入都会通过验证
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* 注册按钮 */}
             <button
