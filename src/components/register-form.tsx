@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 interface RegisterFormProps {
   onSuccess: () => void;
@@ -17,12 +18,19 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
     password: '',
     confirmPassword: '',
   });
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // 验证 Turnstile token
+    if (!turnstileToken) {
+      setError('请完成人机验证');
+      return;
+    }
 
     // 前端验证
     if (!formData.email || !formData.password) {
@@ -58,6 +66,7 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
         body: JSON.stringify({
           email: formData.email.trim(),
           password: formData.password,
+          turnstileToken,
         }),
       });
 
@@ -154,10 +163,27 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
               />
             </div>
 
+            {/* Turnstile 验证 */}
+            <div className="flex justify-center">
+              <Turnstile
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                onSuccess={(token) => {
+                  setTurnstileToken(token);
+                }}
+                onError={() => {
+                  setError('人机验证失败，请刷新页面重试');
+                  setTurnstileToken(null);
+                }}
+                onExpire={() => {
+                  setTurnstileToken(null);
+                }}
+              />
+            </div>
+
             {/* 注册按钮 */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !turnstileToken}
               className="w-full py-3 bg-gradient-to-r from-indigo-500 to-rose-500 text-white rounded-xl font-semibold hover:opacity-90 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               {loading ? '注册中...' : '注册 →'}

@@ -8,7 +8,48 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     console.log('=== 注册请求 ===');
-    console.log('收到的数据:', { ...body, password: '***' });
+    console.log('收到的数据:', { ...body, password: '***', turnstileToken: body.turnstileToken ? '***' : undefined });
+
+    // 验证 Turnstile token
+    if (body.turnstileToken) {
+      const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
+
+      if (!turnstileSecret || turnstileSecret === '你的SecretKey') {
+        console.log('⚠️ Turnstile Secret Key 未配置，跳过验证');
+      } else {
+        try {
+          const verifyResponse = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              secret: turnstileSecret,
+              response: body.turnstileToken,
+              remoteIp: request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || undefined,
+            }),
+          });
+
+          const verifyResult = await verifyResponse.json();
+
+          if (!verifyResult.success) {
+            console.log('❌ Turnstile 验证失败:', verifyResult);
+            return NextResponse.json(
+              { error: '人机验证失败，请重试' },
+              { status: 400 }
+            );
+          }
+
+          console.log('✅ Turnstile 验证成功');
+        } catch (error) {
+          console.error('Turnstile 验证错误:', error);
+          return NextResponse.json(
+            { error: '人机验证失败，请重试' },
+            { status: 500 }
+          );
+        }
+      }
+    }
 
     // 使用 zod 验证输入
     const validationResult = registerSchema.safeParse(body);
