@@ -19,10 +19,6 @@ const nextConfig = {
       },
     ],
   },
-  // 暂时禁用 Turbopack，使用 webpack
-  experimental: {
-    turbo: undefined,
-  },
 };
 
 module.exports = nextConfig;
