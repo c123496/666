@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const records = await db
       .select()
       .from(gameRecords)
-      .where(eq(gameRecords.userId, parseInt(userId)))
+      .where(eq(gameRecords.userId, userId))
       .orderBy(desc(gameRecords.playedAt))
       .limit(50);
 

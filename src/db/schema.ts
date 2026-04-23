@@ -1,28 +1,14 @@
 import { pgTable, serial, text, timestamp, decimal, boolean, varchar, index, integer } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-// 用户表
-export const users = pgTable('users', {
-  id: serial('id').primaryKey(),
-  username: varchar('username', { length: 50 }).notNull().unique(), // 用户名，唯一
-  password: varchar('password', { length: 255 }).notNull(), // 密码哈希
-  name: varchar('name', { length: 100 }), // 显示名称（可选）
-  email: varchar('email', { length: 255 }), // 邮箱（可选）
-  status: varchar('status', { length: 20 }).notNull().default('active'), // active, suspended, deleted
-  isAdmin: boolean('is_admin').notNull().default(false),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => ({
-  usernameIdx: index('users_username_idx').on(table.username),
-  emailIdx: index('users_email_idx').on(table.email),
-  statusIdx: index('users_status_idx').on(table.status),
-}));
+// 用户表由 Prisma 管理，这里不需要定义
+// 实际的 users 表结构请参考 prisma/schema.prisma
 
 // 订单表
 export const orders = pgTable('orders', {
   id: serial('id').primaryKey(),
   orderNo: varchar('order_no', { length: 50 }).notNull().unique(),
-  userId: serial('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  userId: text('user_id').notNull(), // 用户ID（Prisma User.id 是 text 类型）
   amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
   status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, paid, cancelled, refunded
   notes: text('notes'),
@@ -37,7 +23,7 @@ export const orders = pgTable('orders', {
 // 游戏记录表
 export const gameRecords = pgTable('game_records', {
   id: serial('id').primaryKey(),
-  userId: serial('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull(), // 用户ID（Prisma User.id 是 text 类型）
   scenario: varchar('scenario', { length: 100 }).notNull(), // 场景名称（角色名称）
   finalScore: integer('final_score').notNull(), // 最终好感度分数
   result: varchar('result', { length: 20 }).notNull(), //通关/失败
@@ -53,7 +39,7 @@ export const gameRecords = pgTable('game_records', {
 // AI 生成图片记录表
 export const generatedImages = pgTable('generated_images', {
   id: serial('id').primaryKey(),
-  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull(), // 用户ID（Prisma User.id 是 text 类型）
   imageUrl: text('image_url').notNull(), // R2 永久链接
   prompt: text('prompt').notNull(), // 生成提示词
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -62,37 +48,11 @@ export const generatedImages = pgTable('generated_images', {
   createdAtIdx: index('generated_images_created_at_idx').on(table.createdAt),
 }));
 
-// 定义表之间的关系
-export const usersRelations = relations(users, ({ many }) => ({
-  orders: many(orders),
-  gameRecords: many(gameRecords),
-  generatedImages: many(generatedImages),
-}));
-
-export const ordersRelations = relations(orders, ({ one }) => ({
-  user: one(users, {
-    fields: [orders.userId],
-    references: [users.id],
-  }),
-}));
-
-export const gameRecordsRelations = relations(gameRecords, ({ one }) => ({
-  user: one(users, {
-    fields: [gameRecords.userId],
-    references: [users.id],
-  }),
-}));
-
-export const generatedImagesRelations = relations(generatedImages, ({ one }) => ({
-  user: one(users, {
-    fields: [generatedImages.userId],
-    references: [users.id],
-  }),
-}));
+// 注意：users 表由 Prisma 管理，不需要在这里定义 relations
+// 如果需要 relations，请在 Prisma schema 中定义
 
 // TypeScript 类型
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
+// 注意：User 和 NewUser 类型由 Prisma 自动生成，这里不需要导出
 export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
 export type GameRecord = typeof gameRecords.$inferSelect;

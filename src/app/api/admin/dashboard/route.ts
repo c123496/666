@@ -1,28 +1,28 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { db } from '@/db';
-import { users, orders } from '@/db/schema';
+import { orders } from '@/db/schema';
 import { sql, gte, count, eq } from 'drizzle-orm';
 
 export async function GET() {
   try {
     await requireAdmin();
 
-    // 用户总数
-    const totalUsersResult = await db
-      .select({ count: count() })
-      .from(users);
-    const totalUsers = totalUsersResult[0]?.count || 0;
+    // 用户总数（使用 Prisma）
+    const totalUsers = await prisma.user.count();
 
-    // 最近7天新增用户
+    // 最近7天新增用户（使用 Prisma）
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const recentUsersResult = await db
-      .select({ count: count() })
-      .from(users)
-      .where(gte(users.createdAt, sevenDaysAgo));
-    const recentUsers = recentUsersResult[0]?.count || 0;
+    const recentUsers = await prisma.user.count({
+      where: {
+        createdAt: {
+          gte: sevenDaysAgo,
+        },
+      },
+    });
 
     // 订单总数
     const totalOrdersResult = await db

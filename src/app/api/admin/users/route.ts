@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
-import { db } from '@/db';
-import { users } from '@/db/schema';
-import { sql, or, and, ilike, eq, desc } from 'drizzle-orm';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,41 +10,44 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const search = searchParams.get('search') || '';
-    const status = searchParams.get('status') || '';
 
-    const offset = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
     // 构建查询条件
-    const conditions: any[] = [];
+    const where: any = {};
     if (search) {
-      conditions.push(
-        or(
-          ilike(users.name, `%${search}%`),
-          ilike(users.email, `%${search}%`)
-        )
-      );
-    }
-    if (status) {
-      conditions.push(eq(users.status, status));
+      where.OR = [
+        { email: { contains: search, mode: 'insensitive' } },
+        { profile: { nickname: { contains: search, mode: 'insensitive' } } },
+      ];
     }
 
     // 获取用户列表
-    const userList = await db.query.users.findMany({
-      where: conditions.length > 0 ? and(...conditions) : undefined,
-      orderBy: [desc(users.createdAt)],
-      limit,
-      offset,
+    const userList = await prisma.user.findMany({
+      where,
+      include: {
+        profile: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip,
+      take: limit,
     });
 
     // 获取总数
-    const totalResult = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(users)
-      .where(conditions.length > 0 ? and(...conditions) : undefined);
-    const total = totalResult[0]?.count || 0;
+    const total = await prisma.user.count({ where });
 
     return NextResponse.json({
-      users: userList,
+      users: userList.map((user: any) => ({
+        id: user.id,
+        email: user.email,
+        name: user.profile?.nickname || user.email.split('@')[0],
+        role: user.role,
+        status: 'active', // Prisma User 没有状态字段，默认为 active
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      })),
       total,
       page,
       limit,

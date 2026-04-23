@@ -1,6 +1,4 @@
-import { db } from '../src/db';
-import { users, orders } from '../src/db/schema';
-import { eq } from 'drizzle-orm';
+import { prisma } from '../src/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 async function seed() {
@@ -13,17 +11,23 @@ async function seed() {
   // 哈希密码
   const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
-  const existingAdmin = await db.query.users.findFirst({
-    where: eq(users.email, adminEmail),
+  const existingAdmin = await prisma.user.findUnique({
+    where: { email: adminEmail },
   });
 
   if (!existingAdmin) {
-    await db.insert(users).values({
-      username: 'admin',
-      email: adminEmail,
-      password: hashedPassword,
-      isAdmin: true,
-      status: 'active',
+    await prisma.user.create({
+      data: {
+        email: adminEmail,
+        passwordHash: hashedPassword,
+        role: 'admin',
+        profile: {
+          create: {
+            nickname: 'Admin',
+            points: 0,
+          },
+        },
+      },
     });
     console.log('✓ 创建默认管理员账号');
     console.log(`  邮箱: ${adminEmail}`);
@@ -31,54 +35,6 @@ async function seed() {
     console.log('  ⚠️  请立即登录并修改密码！');
   } else {
     console.log('✓ 管理员账号已存在');
-  }
-
-  // 创建测试用户（使用哈希密码）
-  const testUsers = [
-    { username: 'zhangsan', email: 'zhangsan@example.com', password: 'password123' },
-    { username: 'lisi', email: 'lisi@example.com', password: 'password123' },
-    { username: 'wangwu', email: 'wangwu@example.com', password: 'password123' },
-  ];
-
-  for (const userData of testUsers) {
-    const existing = await db.query.users.findFirst({
-      where: eq(users.email, userData.email),
-    });
-
-    if (!existing) {
-      const hashedTestPassword = await bcrypt.hash(userData.password, 10);
-      await db.insert(users).values({
-        username: userData.username,
-        email: userData.email,
-        password: hashedTestPassword,
-        isAdmin: false,
-        status: 'active',
-      });
-      console.log(`✓ 创建测试用户: ${userData.username}`);
-    }
-  }
-
-  // 创建测试订单
-  const allUsers = await db.query.users.findMany();
-
-  if (allUsers.length > 0) {
-    const testOrders = [
-      { orderNo: 'ORD-2024-001', userId: allUsers[0].id, amount: '99.00', status: 'paid' },
-      { orderNo: 'ORD-2024-002', userId: allUsers[1].id, amount: '199.00', status: 'pending' },
-      { orderNo: 'ORD-2024-003', userId: allUsers[0].id, amount: '299.00', status: 'paid' },
-      { orderNo: 'ORD-2024-004', userId: allUsers[2].id, amount: '99.00', status: 'cancelled' },
-    ];
-
-    for (const orderData of testOrders) {
-      const existing = await db.query.orders.findFirst({
-        where: eq(orders.orderNo, orderData.orderNo),
-      });
-
-      if (!existing) {
-        await db.insert(orders).values(orderData);
-        console.log(`✓ 创建测试订单: ${orderData.orderNo}`);
-      }
-    }
   }
 
   console.log('\n数据库初始化完成！');

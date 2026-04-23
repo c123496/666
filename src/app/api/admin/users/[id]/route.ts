@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/auth';
-import { db } from '@/db';
-import { users } from '@/db/schema';
+import { prisma } from '@/lib/prisma';
 
 export async function PATCH(
   request: NextRequest,
@@ -10,36 +8,26 @@ export async function PATCH(
 ) {
   try {
     await requireAdmin();
-    const { id: rawId } = await params;
-
-    const id = parseInt(rawId, 10);
-    if (isNaN(id)) {
-      return NextResponse.json({ error: '无效的用户 ID' }, { status: 400 });
-    }
+    const { id } = await params;
 
     const body = await request.json();
-    const { status } = body;
+    const { role } = body;
 
-    if (!status || !['active', 'suspended', 'deleted'].includes(status)) {
-      return NextResponse.json({ error: '无效的状态值' }, { status: 400 });
+    if (!role || !['user', 'admin'].includes(role)) {
+      return NextResponse.json({ error: '无效的角色值' }, { status: 400 });
     }
 
-    const updated = await db
-      .update(users)
-      .set({
-        status,
+    const updated = await prisma.user.update({
+      where: { id },
+      data: {
+        role,
         updatedAt: new Date(),
-      })
-      .where(eq(users.id, id))
-      .returning();
-
-    if (updated.length === 0) {
-      return NextResponse.json({ error: '用户不存在' }, { status: 404 });
-    }
+      },
+    });
 
     return NextResponse.json({
       success: true,
-      user: updated[0],
+      user: updated,
     });
   } catch (error) {
     console.error('Update user error:', error);

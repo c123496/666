@@ -1,7 +1,5 @@
 import { cookies } from 'next/headers';
-import { db } from '@/db';
-import { users, type User } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { prisma } from '@/lib/prisma';
 import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
 
@@ -11,7 +9,7 @@ const SESSION_SECRET = new TextEncoder().encode(
 );
 
 export interface SessionUser {
-  id: number;
+  id: string; // Prisma User.id 是 string (cuid)
   name: string;
   email: string;
   isAdmin: boolean;
@@ -47,18 +45,21 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     const sessionUser = await verifySessionToken(token);
     if (!sessionUser) return null;
 
-    // 从数据库获取最新用户信息
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, sessionUser.id),
+    // 从 Prisma 数据库获取最新用户信息
+    const user = await prisma.user.findUnique({
+      where: { id: sessionUser.id },
+      include: {
+        profile: true,
+      },
     });
 
-    if (!user || user.status !== 'active') return null;
+    if (!user) return null;
 
     return {
       id: user.id,
-      name: user.name || user.username,
-      email: user.email || '',
-      isAdmin: user.isAdmin,
+      name: user.profile?.nickname || user.email.split('@')[0],
+      email: user.email,
+      isAdmin: user.role === 'admin',
     };
   } catch {
     return null;
@@ -94,18 +95,16 @@ export async function clearSession(): Promise<void> {
 }
 
 // 验证用户凭据
-export async function verifyCredentials(email: string, password: string): Promise<User | null> {
-  const user = await db.query.users.findFirst({
-    where: eq(users.email, email),
+export async function verifyCredentials(email: string, password: string): Promise<any> {
+  const user = await prisma.user.findUnique({
+    where: { email },
   });
 
-  if (!user || !user.password) return null;
+  if (!user || !user.passwordHash) return null;
 
   // 使用 bcrypt 验证密码哈希
-  const isValidPassword = await bcrypt.compare(password, user.password);
+  const isValidPassword = await bcrypt.compare(password, user.passwordHash);
   if (!isValidPassword) return null;
-
-  if (user.status !== 'active') return null;
 
   return user;
 }

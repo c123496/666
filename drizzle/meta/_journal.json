@@ -15,6 +15,20 @@
       "when": 1776918336695,
       "tag": "0001_opposite_selene",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776920671048,
+      "tag": "0002_wandering_warhawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776920800247,
+      "tag": "0003_busy_moira_mactaggert",
+      "breakpoints": true
     }
   ]
 }
