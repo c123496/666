@@ -96,17 +96,24 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
 
     setLoading(true);
 
+    // 🔍 调试日志：提交前的字段检查
+    const submitData = {
+      email: formData.email.trim(),
+      password: formData.password,
+      turnstileToken,
+    };
+    console.log('[注册前端] 准备提交的数据字段:', Object.keys(submitData));
+    console.log('[注册前端] email 值存在:', !!submitData.email, '长度:', submitData.email.length);
+    console.log('[注册前端] password 值存在:', !!submitData.password, '长度:', submitData.password.length);
+    console.log('[注册前端] turnstileToken 值存在:', !!submitData.turnstileToken, '长度:', submitData.turnstileToken?.length);
+
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          password: formData.password,
-          turnstileToken,
-        }),
+        body: JSON.stringify(submitData),
       });
 
       const data = await response.json();

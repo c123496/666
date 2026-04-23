@@ -11,14 +11,33 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    // 🔍 调试日志：打印接收到的所有字段
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    if (isDevelopment) {
+      console.log('[注册] 接收到的请求体字段:', Object.keys(body));
+      console.log('[注册] email 存在:', typeof body.email !== 'undefined', '类型:', typeof body.email);
+      console.log('[注册] password 存在:', typeof body.password !== 'undefined', '类型:', typeof body.password);
+      console.log('[注册] turnstileToken 存在:', typeof body.turnstileToken !== 'undefined', '长度:', body.turnstileToken?.length);
+    }
+
     // 从请求体中拿到前端传来的 Turnstile token
     const { turnstileToken, ...registrationData } = body;
 
+    if (isDevelopment) {
+      console.log('[注册] 提取 turnstileToken 后剩余字段:', Object.keys(registrationData));
+      console.log('[注册] registrationData.email:', typeof registrationData.email !== 'undefined' ? '存在' : 'undefined');
+      console.log('[注册] registrationData.password:', typeof registrationData.password !== 'undefined' ? '存在' : 'undefined');
+    }
+
     // 验证 token 是否存在
     if (!turnstileToken) {
-      console.error('[Turnstile] Token 缺失');
+      console.error('[注册] Token 缺失 - 前端未提交 turnstileToken');
+      console.error('[注册] 收到的字段:', Object.keys(body));
       return NextResponse.json(
-        { error: '请完成人机验证' },
+        {
+          error: '请完成人机验证',
+          field: 'turnstileToken',
+        },
         { status: 400 }
       );
     }
@@ -92,9 +111,23 @@ export async function POST(request: NextRequest) {
     const validationResult = registerSchema.safeParse(registrationData);
 
     if (!validationResult.success) {
-      console.error('[注册] 数据验证失败:', validationResult.error.issues);
+      const firstError = validationResult.error.issues[0];
+      console.error('[注册] 数据验证失败:', firstError.path, firstError.message);
+
+      // 返回更友好的错误提示
+      const fieldErrors: Record<string, string> = {
+        email: '邮箱',
+        password: '密码',
+      };
+
+      const fieldName = firstError.path[0] as string;
+      const fieldLabel = fieldErrors[fieldName] || fieldName;
+
       return NextResponse.json(
-        { error: validationResult.error.issues[0].message },
+        {
+          error: `${fieldLabel}${firstError.message}`,
+          field: fieldName,
+        },
         { status: 400 }
       );
     }

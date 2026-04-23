@@ -11,7 +11,7 @@ const TESTING_SECRET_KEY = '1x0000000000000000000000000000000AA';
 export default function RegisterPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    username: '',
+    email: '',
     password: '',
     confirmPassword: '',
   });
@@ -65,13 +65,15 @@ export default function RegisterPage() {
     }
 
     // 前端验证
-    if (!formData.username || !formData.password) {
+    if (!formData.email || !formData.password) {
       setError('请填写所有字段');
       return;
     }
 
-    if (formData.username.length < 3) {
-      setError('用户名长度不能少于3个字符');
+    // 邮箱格式验证
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('请输入有效的邮箱地址');
       return;
     }
 
@@ -87,17 +89,24 @@ export default function RegisterPage() {
 
     setLoading(true);
 
+    // 🔍 调试日志：提交前的字段检查
+    const submitData = {
+      email: formData.email.trim(),
+      password: formData.password,
+      turnstileToken,
+    };
+    console.log('[注册前端] 准备提交的数据字段:', Object.keys(submitData));
+    console.log('[注册前端] email 值存在:', !!submitData.email, '长度:', submitData.email.length);
+    console.log('[注册前端] password 值存在:', !!submitData.password, '长度:', submitData.password.length);
+    console.log('[注册前端] turnstileToken 值存在:', !!submitData.turnstileToken, '长度:', submitData.turnstileToken?.length);
+
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          username: formData.username,
-          password: formData.password,
-          turnstileToken,
-        }),
+        body: JSON.stringify(submitData),
       });
 
       const data = await response.json();
@@ -170,8 +179,8 @@ export default function RegisterPage() {
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-8">
           {/* 标题 */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">注册账号</h1>
-            <p className="text-white/60">加入哄哄模拟器</p>
+            <h1 className="text-3xl font-bold text-white mb-2">邮箱注册</h1>
+            <p className="text-white/60">创建账号，开始你的专属体验</p>
           </div>
 
           {/* 表单 */}
@@ -183,18 +192,19 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {/* 用户名 */}
+            {/* 邮箱 */}
             <div>
               <label className="block text-sm font-medium text-white/80 mb-2">
-                用户名
+                邮箱地址
               </label>
               <input
-                type="text"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-3 bg-white/5 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple-500/80 focus:bg-white/10 transition-all"
-                placeholder="请输入用户名（3-50个字符）"
+                placeholder="请输入邮箱地址"
                 disabled={loading}
+                autoFocus
               />
             </div>
 

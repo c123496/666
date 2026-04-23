@@ -50,10 +50,23 @@ export const gameRecords = pgTable('game_records', {
   playedAtIdx: index('game_records_played_at_idx').on(table.playedAt),
 }));
 
+// AI 生成图片记录表
+export const generatedImages = pgTable('generated_images', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  imageUrl: text('image_url').notNull(), // R2 永久链接
+  prompt: text('prompt').notNull(), // 生成提示词
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index('generated_images_user_id_idx').on(table.userId),
+  createdAtIdx: index('generated_images_created_at_idx').on(table.createdAt),
+}));
+
 // 定义表之间的关系
 export const usersRelations = relations(users, ({ many }) => ({
   orders: many(orders),
   gameRecords: many(gameRecords),
+  generatedImages: many(generatedImages),
 }));
 
 export const ordersRelations = relations(orders, ({ one }) => ({
@@ -70,6 +83,13 @@ export const gameRecordsRelations = relations(gameRecords, ({ one }) => ({
   }),
 }));
 
+export const generatedImagesRelations = relations(generatedImages, ({ one }) => ({
+  user: one(users, {
+    fields: [generatedImages.userId],
+    references: [users.id],
+  }),
+}));
+
 // TypeScript 类型
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -77,3 +97,5 @@ export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
 export type GameRecord = typeof gameRecords.$inferSelect;
 export type NewGameRecord = typeof gameRecords.$inferInsert;
+export type GeneratedImage = typeof generatedImages.$inferSelect;
+export type NewGeneratedImage = typeof generatedImages.$inferInsert;
