@@ -2,58 +2,67 @@ import { sendDailyLoveLetterToAll } from '@/lib/email';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Vercel Cron: 每日情书定时发送
- * 路径: /api/cron/daily-love-letter
- * 触发: 每天早上 8:00 (UTC)
- * Cron 表达式: 0 8 * * *
+ * Vercel Cron / cron-job.org: 每日情书定时发送
  *
- * Vercel Cron 文档: https://vercel.com/docs/cron-jobs
+ * 访问路径：/api/cron/daily-love-letter
+ * 鉴权方式：query 参数 ?secret=CRON_SECRET
+ *
+ * 外部 Cron 服务调用方式：
+ * https://your-domain.com/api/cron/daily-love-letter?secret=your-secret-key
  */
 export async function GET(request: NextRequest) {
-  console.log('\n' + '='.repeat(60));
-  console.log('💌 Cron Job: 每日情书批量发送');
-  console.log('时间:', new Date().toISOString());
-  console.log('='.repeat(60));
+  const expectedSecret = process.env.CRON_SECRET;
 
-  // 第一步：验证请求是否合法
-  const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
+  // 检查环境变量
+  if (!expectedSecret) {
+    console.error('[Cron] CRON_SECRET 未配置');
+    return NextResponse.json(
+      { error: 'CRON_SECRET 未配置' },
+      { status: 500 }
+    );
+  }
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    console.error('❌ 未授权的 Cron 请求');
+  // 从 query 参数获取 secret
+  const secret = request.nextUrl.searchParams.get('secret');
+
+  // 验证 secret
+  if (secret !== expectedSecret) {
+    console.warn('[Cron] 未授权访问 - secret 不匹配');
     return NextResponse.json(
       { error: '未授权访问' },
       { status: 401 }
     );
   }
 
-  // 第二步：执行任务——给所有用户发情话邮件
+  console.log('[Cron] 开始执行每日情书批量发送 -', new Date().toISOString());
+
   try {
     const results = await sendDailyLoveLetterToAll();
 
-    console.log('\n' + '='.repeat(60));
-    console.log(`✅ 批量发送完成`);
-    console.log(`   总计: ${results.total}`);
-    console.log(`   成功: ${results.success}`);
-    console.log(`   失败: ${results.failed}`);
-    console.log('='.repeat(60) + '\n');
+    console.log('[Cron] 批量发送完成:', {
+      总计: results.total,
+      成功: results.success,
+      失败: results.failed,
+    });
 
     return NextResponse.json({
       success: true,
-      message: `批量发送完成：成功 ${results.success}，失败 ${results.failed}`,
+      message: `每日情话发送完成：成功 ${results.success}，失败 ${results.failed}`,
+      time: new Date().toISOString(),
       data: results,
     });
   } catch (error: any) {
-    console.error('\n' + '='.repeat(60));
-    console.error('❌ Cron Job 执行失败');
-    console.error('='.repeat(60));
-    console.error('错误类型:', error.name);
-    console.error('错误消息:', error.message);
-    console.error('错误堆栈:', error.stack);
-    console.error('='.repeat(60) + '\n');
+    console.error('[Cron] 每日情话发送失败：', {
+      错误名称: error.name,
+      错误消息: error.message,
+      错误堆栈: error.stack,
+    });
 
     return NextResponse.json(
-      { error: '发送失败', details: error.message },
+      {
+        error: '每日情话发送失败',
+        details: error.message,
+      },
       { status: 500 }
     );
   }
