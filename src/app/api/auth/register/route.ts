@@ -171,7 +171,6 @@ export async function POST(request: NextRequest) {
     console.log('[注册] 用户创建成功, ID:', user.id);
 
     // 📧 发送欢迎邮件（异步，不阻塞注册流程）
-    const isDevelopment = process.env.NODE_ENV === 'development';
     let emailError: string | null = null;
 
     (async () => {
