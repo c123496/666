@@ -8,14 +8,26 @@ import * as React from 'react';
 import { WelcomeEmail } from '@/email-templates/welcome-email';
 import { LoveLetterEmail } from '@/email-templates/love-letter-email';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 // 从环境变量读取发件人配置
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 const FROM_NAME = process.env.RESEND_FROM_NAME || '纸片人男友';
 
 // 开发环境测试收件邮箱（因为 onboarding@resend.dev 只能发给 Resend 账号邮箱）
 const TEST_TO_EMAIL = process.env.RESEND_TEST_TO_EMAIL;
+
+/**
+ * 延迟初始化 Resend 客户端
+ * 避免在 build 阶段初始化（此时环境变量不可用）
+ */
+function getResend() {
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY 未配置');
+  }
+
+  return new Resend(apiKey);
+}
 
 /**
  * 获取实际收件人邮箱
@@ -44,13 +56,6 @@ export async function sendWelcomeEmail(
   userName: string
 ) {
   try {
-    // 验证环境变量
-    if (!process.env.RESEND_API_KEY) {
-      const error = new Error('RESEND_API_KEY 环境变量未配置');
-      console.error('[邮件] ❌', error.message);
-      throw error;
-    }
-
     // 验证参数
     if (!userEmail || !userName) {
       const error = new Error('缺少必要参数：userEmail 或 userName');
@@ -69,6 +74,7 @@ export async function sendWelcomeEmail(
     console.log('[邮件]   - 原始邮箱:', userEmail);
 
     // 使用 react 属性，Resend 自动渲染
+    const resend = getResend();
     const { data, error } = await resend.emails.send({
       from: fromAddress,
       to: [recipientEmail],
@@ -114,6 +120,7 @@ export async function sendMorningEmail(
   try {
     console.log('[邮件] 准备发送早安邮件:', { userEmail, userName, personalityName });
 
+    const resend = getResend();
     const data = await resend.emails.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
       to: [userEmail],
@@ -160,6 +167,7 @@ export async function sendVerificationEmail(
   try {
     console.log('[邮件] 准备发送验证码邮件:', { userEmail });
 
+    const resend = getResend();
     const data = await resend.emails.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
       to: [userEmail],
@@ -270,13 +278,6 @@ export async function sendDailyLoveLetter(
   userName: string
 ) {
   try {
-    // 验证环境变量
-    if (!process.env.RESEND_API_KEY) {
-      const error = new Error('RESEND_API_KEY 环境变量未配置');
-      console.error('[情书] ❌', error.message);
-      throw error;
-    }
-
     // 验证参数
     if (!userEmail || !userName) {
       const error = new Error('缺少必要参数：userEmail 或 userName');
@@ -306,6 +307,7 @@ export async function sendDailyLoveLetter(
     });
 
     // 使用 react 属性，Resend 自动渲染
+    const resend = getResend();
     const { data, error } = await resend.emails.send({
       from: fromAddress,
       to: [recipientEmail],
