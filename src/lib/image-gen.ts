@@ -3,6 +3,8 @@
  * 官方文档: https://www.volcengine.com/docs/6492/2172373
  */
 
+import { uploadToR2 } from '@/lib/r2';
+
 /**
  * 火山方舟图片生成请求参数
  */
@@ -119,6 +121,7 @@ export function buildImagePrompt(
 /**
  * 调用火山方舟 Seedream API 生成图片
  * 使用非流式模式，同步返回图片URL
+ * 流程：生成 → 下载 → 上传R2 → 返回R2 URL
  */
 export async function generateImage(
   personalityType: string,
@@ -202,7 +205,7 @@ export async function generateImage(
     console.log('  消耗tokens:', data.usage.total_tokens);
 
     // 提取图片URL
-    console.log('\n【4. 提取图片URL】');
+    console.log('\n【4. 提取豆包临时图片URL】');
     if (!data.data || data.data.length === 0) {
       console.error('  ❌ 没有返回图片数据!');
       console.error('  完整响应:', JSON.stringify(data, null, 2));
@@ -219,21 +222,67 @@ export async function generateImage(
       throw new Error(`图片生成失败: ${firstImage.error.code} - ${firstImage.error.message}`);
     }
 
-    const imageUrl = firstImage.url;
-    if (!imageUrl) {
+    const tempImageUrl = firstImage.url;
+    if (!tempImageUrl) {
       console.error('  ❌ 图片URL为空!');
       console.error('  完整数据:', JSON.stringify(firstImage, null, 2));
       throw new Error('火山方舟API未返回图片URL');
     }
 
-    console.log('  ✅ 图片URL提取成功!');
-    console.log('  图片URL:', imageUrl);
+    console.log('  ✅ 豆包临时URL提取成功!');
+    console.log('  临时URL:', tempImageUrl);
     console.log('  图片尺寸:', firstImage.size);
+
+    // ⭐ 新增：下载临时图片并上传到 R2
+    console.log('\n【5. 下载临时图片并上传到 R2】');
+    let imageBuffer: Buffer;
+    let contentType = 'image/jpeg';
+
+    try {
+      const imageResponse = await fetch(tempImageUrl);
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to download image: ${imageResponse.statusText} (${imageResponse.status})`);
+      }
+
+      // 检测 Content-Type
+      const responseContentType = imageResponse.headers.get('content-type');
+      if (responseContentType) {
+        contentType = responseContentType;
+        console.log('  检测到图片类型:', contentType);
+      }
+
+      imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+      console.log('  ✅ 图片下载成功，大小:', imageBuffer.length, 'bytes');
+    } catch (error) {
+      console.error('  ❌ 下载豆包图片失败:', error);
+      throw new Error('下载图片失败，请稍后重试');
+    }
+
+    // 生成唯一文件名
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 15);
+    const fileExtension = contentType.includes('png') ? 'png' : 'jpg';
+    const fileName = `generated-images/chat/${timestamp}-${random}.${fileExtension}`;
+    console.log('  准备上传到 R2，文件名:', fileName);
+
+    // 上传到 R2
+    let r2ImageUrl: string;
+    try {
+      r2ImageUrl = await uploadToR2(imageBuffer, fileName, contentType);
+      console.log('  ✅ 图片已上传到 R2!');
+    } catch (error) {
+      console.error('  ❌ 上传 R2 失败:', error);
+      throw new Error('图片上传失败，请稍后重试');
+    }
+
+    console.log('\n【6. 返回 R2 永久 URL】');
+    console.log('  ✅ R2 永久 URL:', r2ImageUrl);
     console.log('\n' + '█'.repeat(60));
     console.log('█ 火山方舟图片生成执行完成 ✅');
+    console.log('█ 临时URL → R2永久URL 转换成功 ✅');
     console.log('█'.repeat(60) + '\n');
 
-    return imageUrl;
+    return r2ImageUrl;
 
   } catch (error) {
     console.error('\n' + '█'.repeat(60));

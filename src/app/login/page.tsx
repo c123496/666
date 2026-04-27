@@ -39,8 +39,28 @@ export default function LoginPage() {
         return;
       }
 
-      // 登录成功，跳转到首页
-      router.push('/');
+      // 登录成功，检查是否已选择角色
+      try {
+        const meResponse = await fetch('/api/auth/me', {
+          credentials: 'include',
+        });
+        if (meResponse.ok) {
+          const meData = await meResponse.json();
+          // 已选择角色，跳转到首页（会自动进入聊天）
+          if (meData.user.selectedRole) {
+            router.push('/');
+          } else {
+            // 未选择角色，跳转到角色选择页
+            router.push('/select-role');
+          }
+        } else {
+          // 无法获取用户信息，跳转到首页
+          router.push('/');
+        }
+      } catch {
+        // 出错也跳转到首页
+        router.push('/');
+      }
     } catch (err) {
       setError('网络错误，请稍后重试');
     } finally {

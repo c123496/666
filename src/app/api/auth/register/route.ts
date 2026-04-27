@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { registerSchema } from '@/lib/validations/auth';
+import { sendWelcomeEmail } from '@/lib/email';
 
 // Cloudflare 官方测试 key（仅用于开发环境）
 const TESTING_SITE_KEY = '1x00000000000000000000AA';
@@ -169,17 +170,60 @@ export async function POST(request: NextRequest) {
 
     console.log('[注册] 用户创建成功, ID:', user.id);
 
+    // 📧 发送欢迎邮件（异步，不阻塞注册流程）
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    let emailError: string | null = null;
+
+    (async () => {
+      try {
+        // 获取用户昵称，如果没有则使用邮箱前缀
+        const userName = user.profile?.nickname || user.email.split('@')[0];
+
+        console.log('\n[邮件] ========================================');
+        console.log('[邮件] 开始发送欢迎邮件流程');
+        console.log('[邮件] ========================================');
+        console.log('[邮件] 用户 ID:', user.id);
+        console.log('[邮件] 用户邮箱:', user.email);
+        console.log('[邮件] 用户昵称:', userName);
+        console.log('[邮件] 当前环境:', isDevelopment ? 'development' : 'production');
+
+        await sendWelcomeEmail(user.email, userName);
+
+        console.log('[邮件] ========================================');
+        console.log('[邮件] ✅ 欢迎邮件发送成功！');
+        console.log('[邮件] ========================================');
+      } catch (error: any) {
+        // 邮件发送失败不影响注册流程，只记录错误
+        console.error('[邮件] ========================================');
+        console.error('[邮件] ❌ 发送欢迎邮件失败');
+        console.error('[邮件] ========================================');
+        console.error('[邮件] 错误消息:', error.message);
+        console.error('[邮件] 错误堆栈:', error.stack);
+        console.error('[邮件] 用户注册成功，但欢迎邮件发送失败');
+
+        // 在开发环境下，保存错误信息以便返回给前端
+        if (isDevelopment) {
+          emailError = error.message;
+        }
+      }
+    })();
+
     // 设置会话
-    const response = NextResponse.json(
-      {
-        success: true,
-        user: {
-          id: user.id,
-          email: user.email,
-        },
+    const responseData: any = {
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
       },
-      { status: 201 }
-    );
+    };
+
+    // 开发环境下：返回邮件发送错误（用于调试）
+    if (isDevelopment && emailError) {
+      responseData.emailError = emailError;
+      console.log('[注册] ⚠️ 开发环境：返回邮件错误信息');
+    }
+
+    const response = NextResponse.json(responseData, { status: 201 });
 
     // 设置用户ID到cookie
     response.cookies.set('user_id', user.id, {

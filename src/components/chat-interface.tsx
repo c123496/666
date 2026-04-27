@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { GameRecordToast } from '@/components/game-record-toast';
 import { useGameRecord } from '@/hooks/useGameRecord';
@@ -46,6 +47,7 @@ interface ChatMessage {
 }
 
 export function ChatInterface({ personalityId, onBack }: ChatInterfaceProps) {
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +58,38 @@ export function ChatInterface({ personalityId, onBack }: ChatInterfaceProps) {
 
   // 游戏记录管理
   const { saveGameRecord, showToast, toastMessage, toastType, hideToast, handleLoginRedirect } = useGameRecord();
+
+  // 检查用户是否已选择角色
+  useEffect(() => {
+    const checkUserRole = async () => {
+      try {
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          // 如果用户未选择角色，重定向到角色选择页
+          if (!data.user.selectedRole) {
+            router.push('/select-role');
+            return;
+          }
+          // 如果已选择角色但与当前不匹配，更新当前角色
+          if (data.user.selectedRole && data.user.selectedRole !== personalityId) {
+            // 角色不匹配，刷新页面或跳转到首页
+            router.push('/');
+            return;
+          }
+        } else {
+          // 未登录，跳转到首页
+          router.push('/');
+        }
+      } catch (error) {
+        console.error('检查用户角色失败:', error);
+      }
+    };
+
+    checkUserRole();
+  }, [personalityId, router]);
 
   // 初始化时设置个性化欢迎语
   useEffect(() => {

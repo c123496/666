@@ -84,21 +84,8 @@ export default function Home() {
           setSelectedPersonality(data.user.selectedRole);
           setView('chat');
         } else {
-          // 未选择角色，检查 localStorage
-          try {
-            const savedPersonality = localStorage.getItem('selected_personality');
-            if (savedPersonality) {
-              // localStorage 有保存，使用它
-              setSelectedPersonality(savedPersonality);
-              setView('chat');
-            } else {
-              // 没有选择角色，显示 hero
-              setView('hero');
-            }
-          } catch {
-            // localStorage 不可用，显示 hero
-            setView('hero');
-          }
+          // 未选择角色，跳转到角色选择页
+          router.push('/select-role');
         }
       } catch (error) {
         console.error('检查用户状态失败:', error);

@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 查找用户
+    // 查找用户和用户资料
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
       user: {
         id: user.id,
         email: user.email,
-        selectedRole: user.profile?.selectedRole,
-        nickname: user.profile?.nickname,
+        selectedRole: user.profile?.selectedRole || null,
+        nickname: user.profile?.nickname || null,
         points: user.profile?.points || 0,
       },
     });

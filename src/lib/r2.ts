@@ -3,10 +3,10 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 // 初始化 S3 客户端（指向 R2）
 const s3Client = new S3Client({
   region: 'auto',
-  endpoint: process.env.R2_ENDPOINT,
+  endpoint: process.env.R2_ENDPOINT || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
   },
 });
 
@@ -32,6 +32,21 @@ export async function uploadToR2(
       throw new Error('R2_PUBLIC_URL 环境变量未配置');
     }
 
+    if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
+      throw new Error('R2_ACCESS_KEY_ID 或 R2_SECRET_ACCESS_KEY 环境变量未配置');
+    }
+
+    const accountId = process.env.R2_ACCOUNT_ID;
+    const endpoint = process.env.R2_ENDPOINT || `https://${accountId}.r2.cloudflarestorage.com`;
+
+    console.log('[R2] 上传文件配置:', {
+      bucket: process.env.R2_BUCKET_NAME,
+      fileName,
+      contentType,
+      endpoint,
+      size: fileBuffer.length,
+    });
+
     // 上传文件到 R2
     await s3Client.send(
       new PutObjectCommand({
@@ -42,14 +57,14 @@ export async function uploadToR2(
       })
     );
 
-    console.log('[R2] 文件上传成功:', fileName);
+    console.log('[R2] ✅ 文件上传成功:', fileName);
 
     // 返回永久的公开链接
     const publicUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
     return publicUrl;
   } catch (error) {
-    console.error('[R2] 文件上传失败:', error);
-    throw new Error('文件上传失败，请稍后重试');
+    console.error('[R2] ❌ 文件上传失败:', error);
+    throw new Error(`文件上传失败: ${error instanceof Error ? error.message : '未知错误'}`);
   }
 }
 

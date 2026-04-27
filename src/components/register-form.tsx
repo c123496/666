@@ -319,12 +319,6 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
                     setTurnstileToken(null);
                     setTurnstileError('验证已过期，请重新验证');
                   }}
-                  onBeforeReady={() => {
-                    console.log('[Turnstile] 组件即将渲染');
-                  }}
-                  onReady={() => {
-                    console.log('[Turnstile] 组件渲染完成');
-                  }}
                   theme="auto"
                 />
               </div>
