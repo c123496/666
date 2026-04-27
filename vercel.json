@@ -2,7 +2,6 @@
   "buildCommand": "pnpm run build",
   "installCommand": "pnpm install --prefer-frozen-lockfile",
   "framework": "nextjs",
-  "nodeVersion": "20",
   "buildEnv": {
     "NEXT_PRIVATE_TARGET": "standalone"
   },
