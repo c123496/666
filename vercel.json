@@ -1,14 +1,9 @@
 {
-  "buildCommand": "pnpm run build",
-  "installCommand": "pnpm install --prefer-frozen-lockfile",
-  "framework": "nextjs",
-  "buildEnv": {
-    "NEXT_PRIVATE_TARGET": "standalone"
-  },
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
       "path": "/api/cron/daily-love-letter",
-      "schedule": "0 8 * * *"
+      "schedule": "0 1 * * *"
     }
   ]
 }
