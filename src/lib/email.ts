@@ -308,6 +308,9 @@ export async function sendDailyLoveLetter(
 
     // 使用 react 属性，Resend 自动渲染
     const resend = getResend();
+
+    console.log('[情书] 📤 调用 Resend API 发送邮件...');
+
     const { data, error } = await resend.emails.send({
       from: fromAddress,
       to: [recipientEmail],
@@ -321,11 +324,25 @@ export async function sendDailyLoveLetter(
 
     // 检查 Resend API 返回的错误
     if (error) {
-      console.error('[情书] ❌ Resend API 返回错误:', error);
+      console.error('[情书] ❌ Resend API 返回错误');
       console.error('[情书]   - 错误名称:', error.name);
       console.error('[情书]   - 错误消息:', error.message);
       console.error('[情书]   - 错误状态码:', error.statusCode);
-      throw new Error(`Resend API 错误: ${error.message}`);
+      console.error('[情书]   - 完整错误对象:', JSON.stringify(error, null, 2));
+
+      // 检查是否是 onboarding@resend.dev 的限制
+      if (error.message?.includes('only') && error.message?.includes('verified')) {
+        console.error('[情书]   ⚠️ onboarding@resend.dev 限制：只能发送给 Resend 注册邮箱');
+        console.error('[情书]   - 当前发件人:', FROM_EMAIL);
+        console.error('[情书]   - 当前收件人:', recipientEmail);
+        console.error('[情书]   - 解决方案：验证域名或升级 Resend 账号');
+      }
+
+      const enhancedError = new Error(`Resend API 错误: ${error.message}`);
+      (enhancedError as any).name = error.name;
+      (enhancedError as any).statusCode = error.statusCode;
+      (enhancedError as any).rawError = error;
+      throw enhancedError;
     }
 
     // 成功发送
@@ -338,6 +355,8 @@ export async function sendDailyLoveLetter(
     console.error('[情书] ❌ 发送每日情书失败');
     console.error('[情书]   - 错误类型:', error.name);
     console.error('[情书]   - 错误消息:', error.message);
+    console.error('[情书]   - 错误状态码:', error.statusCode);
+    console.error('[情书]   - 原始错误:', JSON.stringify(error.rawError || error, null, 2));
     console.error('[情书]   - 错误堆栈:', error.stack);
     throw error;
   }
@@ -362,7 +381,13 @@ export async function sendDailyLoveLetterToAll() {
     total: users.length,
     success: 0,
     failed: 0,
-    errors: [] as { email: string; error: string }[],
+    errors: [] as {
+      email: string;
+      errorName: string;
+      errorMessage: string;
+      statusCode?: number;
+      rawError?: any;
+    }[],
   };
 
   // 逐个发送（避免并发过高被限流）
@@ -375,9 +400,22 @@ export async function sendDailyLoveLetterToAll() {
       console.log(`[Cron] ✅ ${user.email}`);
     } catch (error: any) {
       results.failed++;
-      const errorMsg = error.message;
-      results.errors.push({ email: user.email, error: errorMsg });
-      console.error(`[Cron] ❌ ${user.email}: ${errorMsg}`);
+
+      // 提取详细的错误信息
+      const errorDetail = {
+        email: user.email,
+        errorName: error.name || 'UnknownError',
+        errorMessage: error.message || '未知错误',
+        statusCode: error.statusCode,
+        rawError: error.rawError || error,
+      };
+
+      results.errors.push(errorDetail);
+
+      console.error(`[Cron] ❌ ${user.email}`);
+      console.error(`[Cron]   - 错误名称: ${errorDetail.errorName}`);
+      console.error(`[Cron]   - 错误消息: ${errorDetail.errorMessage}`);
+      console.error(`[Cron]   - 状态码: ${errorDetail.statusCode || 'N/A'}`);
     }
   }
 
