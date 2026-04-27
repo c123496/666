@@ -423,3 +423,135 @@ export async function sendDailyLoveLetterToAll() {
 
   return results;
 }
+
+/**
+ * 发送 AI 接口健康检查报警邮件
+ * @param serviceName 服务名称（如：EvoLink API）
+ * @param errorMessage 错误信息
+ * @param errorDetails 详细错误信息
+ */
+export async function sendAlertEmail(
+  serviceName: string,
+  errorMessage: string,
+  errorDetails?: any
+) {
+  try {
+    // 验证参数
+    if (!serviceName || !errorMessage) {
+      const error = new Error('缺少必要参数：serviceName 或 errorMessage');
+      console.error('[报警邮件] ❌', error.message);
+      throw error;
+    }
+
+    // 获取收件人邮箱（报警邮件总是发送给管理员）
+    const recipientEmail = process.env.ALERT_EMAIL || 'billycui134@gmail.com';
+    const fromAddress = `${FROM_NAME} <${FROM_EMAIL}>`;
+
+    console.log('[报警邮件] 🚨 准备发送报警邮件');
+    console.log('[报警邮件]   - 发件人:', fromAddress);
+    console.log('[报警邮件]   - 收件人:', recipientEmail);
+    console.log('[报警邮件]   - 服务名称:', serviceName);
+    console.log('[报警邮件]   - 错误信息:', errorMessage);
+
+    // 格式化时间
+    const timeStr = new Date().toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short',
+    });
+
+    // 构建邮件内容
+    const htmlContent = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%); color: white; padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+          <h1 style="margin: 0; font-size: 28px;">🚨 AI 接口异常报警</h1>
+          <p style="margin: 10px 0 0 0; opacity: 0.9;">请立即检查服务状态</p>
+        </div>
+        <div style="background-color: #fff5f5; padding: 30px; border-radius: 0 0 12px 12px; border: 2px solid #ff6b6b;">
+          <h2 style="color: #333; margin-top: 0;">报警详情</h2>
+
+          <div style="background-color: #fff; padding: 20px; border-radius: 8px; border-left: 4px solid #ff6b6b; margin-bottom: 20px;">
+            <p style="margin: 0 0 10px 0; color: #666; font-size: 14px; font-weight: bold;">服务名称</p>
+            <p style="margin: 0; color: #333; font-size: 18px; font-weight: bold;">${serviceName}</p>
+          </div>
+
+          <div style="background-color: #fff; padding: 20px; border-radius: 8px; border-left: 4px solid #ff6b6b; margin-bottom: 20px;">
+            <p style="margin: 0 0 10px 0; color: #666; font-size: 14px; font-weight: bold;">发生时间</p>
+            <p style="margin: 0; color: #333; font-size: 16px;">${timeStr}</p>
+          </div>
+
+          <div style="background-color: #fff; padding: 20px; border-radius: 8px; border-left: 4px solid #ff6b6b; margin-bottom: 20px;">
+            <p style="margin: 0 0 10px 0; color: #666; font-size: 14px; font-weight: bold;">错误信息</p>
+            <p style="margin: 0; color: #e53e3e; font-size: 16px; font-family: monospace; background-color: #fff5f5; padding: 10px; border-radius: 4px;">${errorMessage}</p>
+          </div>
+
+          ${errorDetails ? `
+          <div style="background-color: #fff; padding: 20px; border-radius: 8px; border-left: 4px solid #ff6b6b; margin-bottom: 20px;">
+            <p style="margin: 0 0 10px 0; color: #666; font-size: 14px; font-weight: bold;">详细错误</p>
+            <pre style="margin: 0; color: #666; font-size: 12px; background-color: #f7fafc; padding: 15px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(errorDetails, null, 2)}</pre>
+          </div>
+          ` : ''}
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin-top: 20px;">
+            <p style="margin: 0; color: #856404; font-size: 14px;">
+              <strong>建议操作：</strong><br>
+              1. 检查服务配置（API Key、Endpoint 等）<br>
+              2. 查看服务提供商状态页<br>
+              3. 检查服务日志和错误信息<br>
+              4. 如果持续失败，考虑切换备用服务
+            </p>
+          </div>
+        </div>
+        <div style="text-align: center; margin-top: 30px; color: #999; font-size: 12px;">
+          <p style="margin: 0;">此邮件由纸片人男友自动发送 - AI 接口健康检查系统</p>
+        </div>
+      </div>
+    `;
+
+    // 发送邮件
+    const resend = getResend();
+
+    console.log('[报警邮件] 📤 调用 Resend API 发送报警邮件...');
+
+    const { data, error } = await resend.emails.send({
+      from: fromAddress,
+      to: [recipientEmail],
+      subject: `🚨 报警：${serviceName} 异常 - ${timeStr}`,
+      html: htmlContent,
+    });
+
+    // 检查 Resend API 返回的错误
+    if (error) {
+      console.error('[报警邮件] ❌ Resend API 返回错误');
+      console.error('[报警邮件]   - 错误名称:', error.name);
+      console.error('[报警邮件]   - 错误消息:', error.message);
+      console.error('[报警邮件]   - 错误状态码:', error.statusCode);
+      console.error('[报警邮件]   - 完整错误对象:', JSON.stringify(error, null, 2));
+
+      const enhancedError = new Error(`Resend API 错误: ${error.message}`);
+      (enhancedError as any).name = error.name;
+      (enhancedError as any).statusCode = error.statusCode;
+      (enhancedError as any).rawError = error;
+      throw enhancedError;
+    }
+
+    // 成功发送
+    console.log('[报警邮件] ✅ 报警邮件发送成功!');
+    console.log('[报警邮件]   - 邮件 ID:', data?.id);
+    console.log('[报警邮件]   - 发送时间:', new Date().toISOString());
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('[报警邮件] ❌ 发送报警邮件失败');
+    console.error('[报警邮件]   - 错误类型:', error.name);
+    console.error('[报警邮件]   - 错误消息:', error.message);
+    console.error('[报警邮件]   - 错误状态码:', error.statusCode);
+    console.error('[报警邮件]   - 原始错误:', JSON.stringify(error.rawError || error, null, 2));
+    console.error('[报警邮件]   - 错误堆栈:', error.stack);
+    throw error;
+  }
+}
