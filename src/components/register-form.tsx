@@ -62,17 +62,26 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    console.log('[注册] ========== 开始注册流程 ==========');
+    console.log('[注册] 当前 turnstileToken 状态:', turnstileToken ? '存在' : '不存在');
+    console.log('[注册] turnstileToken 长度:', turnstileToken?.length || 0);
+
     setError('');
     setTurnstileError('');
 
     // 验证 Turnstile token
     if (!turnstileToken) {
+      console.error('[注册] ❌ Turnstile token 不存在，阻止提交');
       setError('请完成人机验证');
       return;
     }
 
+    console.log('[注册] ✅ Turnstile token 验证通过');
+
     // 前端验证
     if (!formData.email || !formData.password) {
+      console.error('[注册] ❌ 表单字段不完整');
       setError('请填写所有必填字段');
       return;
     }
@@ -80,19 +89,24 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
     // 邮箱格式验证
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
+      console.error('[注册] ❌ 邮箱格式无效');
       setError('请输入有效的邮箱地址');
       return;
     }
 
     if (formData.password.length < 6) {
+      console.error('[注册] ❌ 密码长度不足');
       setError('密码长度不能少于6个字符');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
+      console.error('[注册] ❌ 两次密码不一致');
       setError('两次输入的密码不一致');
       return;
     }
+
+    console.log('[注册] ✅ 前端验证通过');
 
     setLoading(true);
 
@@ -102,12 +116,13 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
       password: formData.password,
       turnstileToken,
     };
-    console.log('[注册前端] 准备提交的数据字段:', Object.keys(submitData));
-    console.log('[注册前端] email 值存在:', !!submitData.email, '长度:', submitData.email.length);
-    console.log('[注册前端] password 值存在:', !!submitData.password, '长度:', submitData.password.length);
-    console.log('[注册前端] turnstileToken 值存在:', !!submitData.turnstileToken, '长度:', submitData.turnstileToken?.length);
+    console.log('[注册] 准备提交的数据字段:', Object.keys(submitData));
+    console.log('[注册] email 存在:', !!submitData.email, '长度:', submitData.email.length);
+    console.log('[注册] password 存在:', !!submitData.password, '长度:', submitData.password.length);
+    console.log('[注册] turnstileToken 存在:', !!submitData.turnstileToken, '长度:', submitData.turnstileToken?.length);
 
     try {
+      console.log('[注册] 发送 fetch 请求到 /api/auth/register');
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
@@ -116,26 +131,39 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
         body: JSON.stringify(submitData),
       });
 
+      console.log('[注册] 收到响应，状态码:', response.status);
+
       const data = await response.json();
+      console.log('[注册] 响应数据:', data);
 
       if (!response.ok) {
         // 如果是 Turnstile 验证失败，清空 token
         if (response.status === 403) {
+          console.error('[注册] ❌ Turnstile 验证失败（403）');
           setTurnstileToken(null);
           setTurnstileError('人机验证失败，请重新验证');
+        } else if (response.status === 400) {
+          console.error('[注册] ❌ 数据验证失败（400）:', data);
+        } else if (response.status === 409) {
+          console.error('[注册] ❌ 邮箱已被注册（409）');
         }
-        setError(data.error || '注册失败');
+
+        const errorMsg = data.error || '注册失败';
+        console.error('[注册] 错误消息:', errorMsg);
+        setError(errorMsg);
         return;
       }
 
+      console.log('[注册] ✅ 注册成功！');
       // 注册成功，清空 token 并调用回调
       setTurnstileToken(null);
       onSuccess();
     } catch (err) {
-      console.error('[注册] 请求错误:', err);
+      console.error('[注册] ❌ 请求错误:', err);
       setError('网络错误，请稍后重试');
     } finally {
       setLoading(false);
+      console.log('[注册] ========== 注册流程结束 ==========');
     }
   };
 
@@ -260,6 +288,8 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
                 <Turnstile
                   siteKey={siteKey}
                   onSuccess={(token) => {
+                    console.log('[Turnstile] ✅ 验证成功，收到 token');
+                    console.log('[Turnstile] Token 长度:', token?.length);
                     setTurnstileToken(token);
                     setTurnstileError('');
                   }}
@@ -280,13 +310,22 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
                       errorMsg = '验证组件参数错误，请联系管理员';
                     }
 
+                    console.error('[Turnstile] 错误详情:', errorMsg);
                     setTurnstileError(errorMsg);
                     setTurnstileToken(null);
                   }}
                   onExpire={() => {
+                    console.warn('[Turnstile] Token 已过期');
                     setTurnstileToken(null);
                     setTurnstileError('验证已过期，请重新验证');
                   }}
+                  onBeforeReady={() => {
+                    console.log('[Turnstile] 组件即将渲染');
+                  }}
+                  onReady={() => {
+                    console.log('[Turnstile] 组件渲染完成');
+                  }}
+                  theme="auto"
                 />
               </div>
             </div>
