@@ -110,6 +110,34 @@ export function WelcomeEmail({ userName }: WelcomeEmailProps) {
             </Button>
           </Section>
 
+          {/* Discord 社区邀请 */}
+          <Section style={{ textAlign: 'center', marginTop: '25px', marginBottom: '25px' }}>
+            <Text
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                marginBottom: '12px',
+              }}
+            >
+              想认识更多朋友？加入我的 Discord 社区吧！
+            </Text>
+            <Link
+              href="https://discord.gg/yjhpzyUvt"
+              style={{
+                display: 'inline-block',
+                backgroundColor: '#5865F2',
+                color: '#ffffff',
+                padding: '10px 24px',
+                borderRadius: '20px',
+                textDecoration: 'none',
+                fontWeight: '600',
+                fontSize: '13px',
+              }}
+            >
+              加入 Discord 社区
+            </Link>
+          </Section>
+
           {/* 底部签名 */}
           <Section
             style={{

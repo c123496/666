@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Navbar } from '@/components/navbar';
+import { Footer } from '@/components/footer';
 import CrispChat from '@/components/crisp-chat';
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default function RootLayout({
       <body>
         <Navbar />
         <main className="pt-16">{children}</main>
+        <Footer />
         <CrispChat />
       </body>
     </html>
