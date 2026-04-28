@@ -41,19 +41,21 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
     let selectedSiteKey = '';
     let usingTestKey = false;
 
-    if (isProduction && envSiteKey) {
-      // 生产环境：使用正式 key
-      selectedSiteKey = envSiteKey;
-      usingTestKey = false;
-    } else if (!isProduction) {
+    if (isProduction) {
+      // 生产环境：必须使用正式 key
+      if (envSiteKey) {
+        selectedSiteKey = envSiteKey;
+        usingTestKey = false;
+      } else {
+        // 生产环境未配置，显示错误提示
+        console.error('[Turnstile] ❌ 生产环境未配置 NEXT_PUBLIC_TURNSTILE_SITE_KEY');
+        console.error('[Turnstile] 请在 Vercel 环境变量中添加该配置');
+        selectedSiteKey = ''; // 设置为空，触发错误提示
+      }
+    } else {
       // 开发环境：默认使用测试 key
       selectedSiteKey = TESTING_SITE_KEY;
       usingTestKey = true;
-    } else {
-      // 生产环境但没有配置正式 key
-      if (process.env.NODE_ENV === 'development') {
-        console.error('[Turnstile] ❌ 生产环境未配置 NEXT_PUBLIC_TURNSTILE_SITE_KEY');
-      }
     }
 
     setSiteKey(selectedSiteKey);
@@ -183,14 +185,29 @@ export function RegisterForm({ onSuccess, onBack }: RegisterFormProps) {
         <div className="relative z-10 w-full max-w-md">
           <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-8">
             <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm text-center">
-              <div className="font-bold mb-2">⚠️ 人机验证未配置</div>
-              <div className="text-xs">
-                生产环境请在 .env.local 中添加：<br/>
-                <code className="block mt-2 p-2 bg-black/30 rounded">
-                  NEXT_PUBLIC_TURNSTILE_SITE_KEY=你的正式SiteKey
-                </code>
-                <div className="mt-2 text-orange-300">
-                  添加后请重启开发服务器并重新部署
+              <div className="font-bold mb-2">⚠️ 生产环境缺少必要配置</div>
+              <div className="text-xs text-left space-y-3">
+                <div>
+                  请在 <strong className="text-white">Vercel 项目设置</strong> 中添加以下环境变量：
+                </div>
+                <div className="bg-black/30 p-3 rounded space-y-1">
+                  <div className="font-mono text-[10px] text-yellow-300">
+                    NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAADBK-6FEmTQHUZtg
+                  </div>
+                  <div className="font-mono text-[10px] text-yellow-300">
+                    TURNSTILE_SECRET_KEY=0x4AAAAAADBK-3wIQsNxCHnEH_O8NNt3YwE
+                  </div>
+                  <div className="font-mono text-[10px] text-yellow-300">
+                    NEXT_PUBLIC_CRISP_WEBSITE_ID=7d2e0d45-4adb-48e1-9b89-26ec93da1699
+                  </div>
+                </div>
+                <div className="text-orange-300">
+                  <div className="font-semibold mb-1">配置步骤：</div>
+                  <ol className="list-decimal list-inside space-y-1 text-left">
+                    <li>前往 Vercel 项目 Settings → Environment Variables</li>
+                    <li>逐个添加上述环境变量</li>
+                    <li>重新部署项目（Redeploy）</li>
+                  </ol>
                 </div>
               </div>
             </div>
