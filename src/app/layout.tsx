@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Navbar } from '@/components/navbar';
+import CrispChat from '@/components/crisp-chat';
 
 export const metadata: Metadata = {
   title: '虚拟男友 - 你的AI伴侣',
@@ -17,6 +18,7 @@ export default function RootLayout({
       <body>
         <Navbar />
         <main className="pt-16">{children}</main>
+        <CrispChat />
       </body>
     </html>
   );
